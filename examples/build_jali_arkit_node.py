@@ -18,6 +18,8 @@
 # 사용
 #   Maya Script Editor:  import build_jali_arkit_node as b; b.build()
 #   배치:  mayapy build_jali_arkit_node.py [out.ma]
+#   컨트롤러: Maya 에서 b.build_controller()  /  배치는 mayapy build_jali_arkit_node.py --ctl [out.ma]
+#            (out/jali_arkit_mapping.ma 를 열어 JaLi 2D 슬라이더만 더하고 jali_arkit_mapping_ctl.ma 로 저장)
 
 import os
 import sys
@@ -139,6 +141,69 @@ def build(prefix=''):
     return grp, in_node, out_node
 
 
+def _curve(name, points, parent, color, degree=1):
+    crv = cmds.curve(n=name, d=degree, p=points)
+    cmds.parent(crv, parent, r=True)
+    shape = cmds.listRelatives(crv, s=True)[0]
+    cmds.rename(shape, name + 'Shape')
+    cmds.setAttr(name + 'Shape.overrideEnabled', 1)
+    cmds.setAttr(name + 'Shape.overrideColor', color)
+    return crv
+
+
+def _text(name, label, parent, pos, rot_z, scale):
+    """textCurves 로 라벨 커브를 만들고 선택 불가(reference)로 둔다."""
+    tmp = cmds.textCurves(t=label, f='Arial', ch=False)[0]
+    grp = cmds.group(em=True, n=name, p=parent)
+    for shape in cmds.listRelatives(tmp, ad=True, type='nurbsCurve', f=True) or []:
+        xf = cmds.listRelatives(shape, p=True, f=True)[0]
+        cmds.parent(xf, grp)
+    cmds.delete(tmp)
+    cmds.xform(grp, t=pos, ro=(0, 0, rot_z), s=(scale, scale, scale))
+    cmds.setAttr(grp + '.overrideEnabled', 1)
+    cmds.setAttr(grp + '.overrideDisplayType', 2)
+    cmds.setAttr(grp + '.overrideColor', 24)
+    return grp
+
+
+def build_controller(in_node='JALI_IN', prefix='', position=(0.0, 0.0, 0.0)):
+    """angela 리그의 JaLi 컨트롤을 본뜬 2D 슬라이더를 만들어 JALI_IN.Jaw / Lip 에 연결한다.
+
+    X = Jaw, Y = Lip, 범위 0~15 (안쪽 박스 0~10, 바깥 박스 0~15), 기본 (9, 9).
+    """
+    p = prefix
+    grp = cmds.createNode('transform', n=p + 'JALI_CTL_GRP')
+    cmds.xform(grp, t=position)
+    border = cmds.createNode('transform', n=p + 'JaliInnerBorder', p=grp)
+    box = [(0, 10, 0), (10, 10, 0), (10, 0, 0), (0, 0, 0), (0, 10, 0)]
+    _curve(p + 'JaLi_box', box, border, 21)
+    outer = cmds.createNode('transform', n=p + 'JaliOuterBorder', p=border)
+    cmds.setAttr(outer + '.s', 1.5, 1.5, 1.5)
+    _curve(p + 'JaLi_outerBox', box, outer, 21)
+    for node in (border, outer):
+        cmds.setAttr(node + '.overrideEnabled', 1)
+        cmds.setAttr(node + '.overrideDisplayType', 2)      # reference: 클릭해도 선택되지 않게
+    _text(p + 'Text_Jaw', 'Jaw', border, (2.7, -2.3, 0), 0, 1.4)
+    _text(p + 'Text_Lip', 'Lip', border, (-1.0, 2.8, 0), 90, 1.4)
+
+    # 핸들: 원(XY 평면) + tx/ty 만 키 가능, 0~15 제한
+    ctl = cmds.circle(n=p + 'CNT_JaLi', nr=(0, 0, 1), r=0.94, ch=False)[0]
+    cmds.parent(ctl, grp, r=True)
+    cmds.rename(cmds.listRelatives(ctl, s=True)[0], p + 'CNT_JaLiShape')
+    cmds.setAttr(p + 'CNT_JaLiShape.overrideEnabled', 1)
+    cmds.setAttr(p + 'CNT_JaLiShape.overrideColor', 10)
+    cmds.transformLimits(ctl, tx=(0, 15), ty=(0, 15), etx=(True, True), ety=(True, True))
+    for attr in ('tz', 'rx', 'ry', 'rz', 'sx', 'sy', 'sz', 'v'):
+        cmds.setAttr('{0}.{1}'.format(ctl, attr), l=True, k=False, cb=False)
+    cmds.setAttr(ctl + '.tx', MEASURED_JALI)
+    cmds.setAttr(ctl + '.ty', MEASURED_JALI)
+
+    cmds.connectAttr(ctl + '.tx', in_node + '.Jaw', f=True)
+    cmds.connectAttr(ctl + '.ty', in_node + '.Lip', f=True)
+    cmds.select(ctl)
+    return grp, ctl
+
+
 def connect_rig(in_node='JALI_IN', namespace=''):
     """angela 리그 컨트롤 -> JALI_IN 연결 (리그와 같은 씬에 있을 때)."""
     ns = namespace + ':' if namespace and not namespace.endswith(':') else namespace
@@ -165,13 +230,21 @@ def _main(argv):
     import maya.standalone
     maya.standalone.initialize(name='python')
     try:
-        here = os.path.dirname(os.path.abspath(__file__))
-        out = argv[1] if len(argv) > 1 else os.path.join(here, '..', 'out', 'jali_arkit_mapping.ma')
-        out = os.path.abspath(out)
+        # --ctl : 기존 jali_arkit_mapping.ma 를 열어 노드는 그대로 두고 컨트롤러만 더해 _ctl.ma 로 저장
+        ctl_mode = '--ctl' in argv
+        args = [a for a in argv[1:] if a != '--ctl']
+        out_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'out')
+        base = os.path.abspath(os.path.join(out_dir, 'jali_arkit_mapping.ma'))
+        default = base.replace('.ma', '_ctl.ma') if ctl_mode else base
+        out = os.path.abspath(args[0] if args else default)
         if not os.path.isdir(os.path.dirname(out)):
             os.makedirs(os.path.dirname(out))
-        cmds.file(new=True, force=True)
-        build()
+        if ctl_mode:
+            cmds.file(base, open=True, force=True)
+            build_controller()
+        else:
+            cmds.file(new=True, force=True)
+            build()
         cmds.file(rename=out)
         cmds.file(save=True, type='mayaAscii')
         print('Saved: ' + out)
