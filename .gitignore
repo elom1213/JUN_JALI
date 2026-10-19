@@ -135,3 +135,7 @@ out/
 setup_env.log
 tools/*/data/
 .venv_bak/
+
+# [JUN_JALI] private Python downloaded by setup_env.bat
+.python/
+.python_dl/

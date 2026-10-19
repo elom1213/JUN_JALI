@@ -16,25 +16,53 @@
 ## 1. 설치 — `setup_env.bat` 더블클릭
 
 Windows 10 · 11 공용. 관리자 권한 불필요. 인터넷이 필요하다(패키지 약 1.6 GB).
+모델 런타임 **TensorFlow 2.15 는 64bit Python 3.9 ~ 3.11 에서만 돈다** — PC 에 Python 3.12 ~ 3.14 만 있으면
+setup 이 **이 폴더 전용 Python 3.11** 을 받아 쓴다(2026-10-20, 아래).
 
 | 단계 | 화면 | 하는 일 |
 |------|------|--------|
-| 1/4 | `found: py -3.11 (Python 3.11.9)` | 64bit Python 3.9~3.11 을 찾는다 (`py` 런처 → PATH, 스토어 바로가기는 건너뜀) |
-| 2/4 | `created .venv` / `reusing the existing .venv` | 저장소 안 `.venv` 를 만들거나 재사용 |
-| 3/4 | `packages OK` | `requirements.txt` 설치 (TensorFlow CPU 2.15.1 · PySide6 · scipy …) |
-| 4/4 | `[OK] model coffee_xxxx.wav -> (364, 22)` | 모델을 불러와 예시 음성을 실제로 변환해 본다 |
+| 1/5 | `found: py -3.11 (Python 3.11)` | 64bit Python 3.9~3.11 을 찾는다: `py -3.11` · `-3.10` · `-3.9` → PATH 의 `python` → 이 폴더의 `.python\`. **후보를 실제로 실행해 출력한 버전으로 판단한다**(종료 코드는 믿지 않는다) |
+| (없을 때) | `Found Python 3.14 (not supported).` + `Download the private Python 3.11 now [Y,N]?` | Y = python.org 의 Python 3.11.9 NuGet 패키지(약 17 MB)를 받아 **SHA-256 을 확인**하고 `.python\` 에 푼다 |
+| 2/5 | `created .venv` / `reusing the existing .venv` | 저장소 안 `.venv` 를 만들거나 재사용. 만든 뒤 **실제로 생겼는지 확인**하고, 깨진 `.venv` 는 다시 만든다 |
+| 3/5 | `packages OK` | `requirements.txt` 설치 (TensorFlow CPU 2.15.1 · PySide6 · scipy …) |
+| 4/5 | `[OK] model coffee_xxxx.wav -> (364, 22)` | 모델을 불러와 예시 음성을 실제로 변환해 본다 |
 
 `SETUP OK` 가 나오면 끝. 자세한 출력은 `setup_env.log`.
 
-- **다시 실행해도 안전하다** — 이미 있으면 재사용(이 PC 에서 8초). `.venv` 를 새로 만들려면 명령창에서 `setup_env.bat --force`.
-- 파이썬이 없으면: `winget` 이 있는 PC 는 `Install Python 3.11 ... [Y,N]?` 을 묻는다(Y = 사용자 계정에 설치).
-  없거나 N 이면 python.org 링크를 안내하고 멈춘다 — 설치할 때 **`Add python.exe to PATH`** 를 체크할 것.
+- **다시 실행해도 안전하다** — 이미 있으면 재사용(이 PC 에서 8~25초). `.venv` 를 새로 만들려면 명령창에서 `setup_env.bat --force`.
+  `--yes` = 전용 Python 을 묻지 않고 받는다, `--nopause` = 끝에 멈추지 않는다(스크립트용).
+
+### Python 3.14 만 있는 PC (Windows 10 보고, 2026-10-20)
+
+예전 setup 은 이렇게 실패했다:
+
+```
+[ERROR] No runtime installed that matches 3.11. Try running "py install 3.11".
+      found: py -3.11  (Python )          <- 3.11 이 없는데 찾았다고 판단
+      created .venv                        <- 만들지 못했는데 넘어감
+The system cannot find the path specified.
+```
+
+**원인** — 새 Python 설치 관리자(Python 3.14 와 함께 오는 `py`)는 3.11 이 없을 때 `py -3.11 ...` 이 오류를 출력하고도 **성공 코드(0)** 로
+끝났다(보고 로그 기준). 예전 setup 은 종료 코드만 봤다. 지금은 후보마다 `import sys; print('JUNPY', 버전, 64bit)` 를 실행해 **출력을 읽고**,
+venv 는 `python.exe` 가 실제로 생겼는지 본다.
+
+**전용 Python (`.python\`)**
+- python.org 가 배포하는 **설치 프로그램 없는 Python 3.11.9**(NuGet 패키지)를 이 폴더에만 푼다. 시스템에 설치하지 않고(레지스트리 · PATH ·
+  `py` 런처 변경 없음) 기존 Python 3.14 도 그대로다. 지우려면 `.python\` · `.venv\` 폴더만 지우면 된다.
+- 받은 파일은 SHA-256 `9283876d…3c67` 과 맞아야 푼다(다르면 중단). 다운로드 · 해시 · 압축 풀기는 PowerShell 모듈 없이 .NET 만 쓴다
+  (Windows 10 기본 PowerShell 5.1 에서 `Get-FileHash` 등이 안 보이는 환경이 있었다).
+- 패키지의 `Lib\site-packages\`(미리 든 pip · setuptools)는 풀지 않는다 — 경로가 가장 깊어 긴 폴더에서 260자 제한에 걸리고,
+  venv 는 `Lib\ensurepip` 로 pip 를 따로 설치한다.
+- **폴더를 옮기면** `.venv` 가 옛 경로를 가리켜 깨진다 → `Run_VisemeNet_Converter.bat` 가 실행 전에 확인하고
+  `Double-click setup_env.bat again` 을 띄운다. 그때 `setup_env.bat --force`.
 
 | 실패 메시지 | 해결 |
 |------------|------|
-| `Python 3.9 - 3.11 (64-bit) is required.` | Python 3.11 64bit 설치 후 다시 |
-| `Hint: this Python version is not supported` | 3.12 이상만 있다 — 3.11 을 추가 설치 (`py -3.11` 로 같이 쓸 수 있다) |
-| `DLL load failed ...` + VC++ 링크 | Microsoft Visual C++ 재배포 패키지(x64) 설치 |
+| `Python 3.9 - 3.11 (64-bit) is required.` | 다시 실행해 `Y`(전용 Python 받기), 또는 Python 3.11 64bit 설치 |
+| `Download / extract failed` | 인터넷 · 회사 프록시 확인, 또는 폴더 경로가 너무 길다 → `C:\JUN_JALI` 처럼 짧은 곳으로 |
+| `Hint: this Python version is not supported` | (예전 판) 3.12 이상으로 venv 를 만든 경우 — 지금 판으로 `--force` |
+| `DLL load failed ...` + VC++ 링크 | Microsoft Visual C++ 재배포 패키지(x64) 설치 (TensorFlow 가 쓴다) |
 | `Hint: Windows 260-character path limit` | 저장소를 `C:\JUN_JALI` 처럼 짧은 경로로 옮기기 |
 | `Hint: network / proxy problem` | 인터넷 · 회사 프록시 확인 |
 
@@ -143,6 +171,11 @@ tools\VisemeNet_Converter\tests\make_bad_wavs.py <작업폴더>   검사 규칙 
 tools\VisemeNet_Converter\tests\test_core.py     <작업폴더>   일괄 변환 17개 (사전검사 중단 · 결정성 · Stop · E09/E11/E20/E21)
 tools\VisemeNet_Converter\tests\test_ui.py       <작업폴더>   오프스크린 UI 12개 (실제 Convert 경로 · 한글 경로 · 설정 복원)
 ```
+
+**확인 기록 (2026-10-20, Python 3.14 대응)**: 저장소 사본을 짧은 경로에 두고, 가짜 `py`(3.9~3.11 = 보고와 같은 오류 출력 + 종료 코드 0, 기본 = 3.14)와
+가짜 `python`(3.14)만 PATH 에 둔 채 `setup_env.bat --yes` → 3.14 감지 · 전용 Python 받기(SHA-256) · venv · 패키지 · 자가 검사 `SETUP OK`(87초, pip 캐시 있음),
+`.python\` 를 지우고 다시 → 다시 받아 `SETUP OK`, 재실행은 재사용. 그 `.venv` 로 변환기 검사 · UI 시험 통과. 이 PC 의 실제 3.11 로도 `SETUP OK`.
+실제 Windows 10 + Python 3.14 PC 에서의 확인은 사용자 몫.
 
 **확인 기록 (2026-10-19, Windows 11)**: 위 시험 전부 통과 · `.venv` 없는 상태에서 `setup_env.bat` → `SETUP OK` 84초(pip 캐시 있음) ·
 재실행 8초 · PATH 에 파이썬이 없을 때 안내 후 종료 · `Run_VisemeNet_Converter.bat` → 시작 오류 없이 이벤트 루프 진입.
