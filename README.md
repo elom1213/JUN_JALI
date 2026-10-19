@@ -7,6 +7,8 @@
 |------|------|
 | [docs/0010_visemenet_feasibility.md](docs/0010_visemenet_feasibility.md) | 진단 — 가능 여부, 필요 조건, 수정 계획 |
 | [docs/0020_usage_example_maya.md](docs/0020_usage_example_maya.md) | **사용법** — 예시 wav → 추론 → Maya JALI 리그(angela_JALI.ma) 키 |
+| [docs/0030_tool_plan.md](docs/0030_tool_plan.md) | 툴 제작 계획 — 환경 설치 bat · wav→txt 변환기 · Maya 키 툴(A00540) |
+| [docs/0040_jali_arkit_mapping.md](docs/0040_jali_arkit_mapping.md) | JALI 음소 ↔ ARKit 52 블렌드셰이프 매칭 (리그 실측 기반) |
 
 포크에서 더한 것: `requirements.txt`(확인된 버전), `examples/maya_apply_visemenet.py`(결과 txt → 리그 키), `docs/`.
 원본 코드(`inference.py` · `postprocess.py` · `visemenet_frozen.pb`)는 아직 손대지 않았다.
