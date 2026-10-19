@@ -1,0 +1,5 @@
+source : C:\Users\USER\Desktop\JP\0030_maya_python_JUN\Maya_Python\JUN_All\Framework
+remote : https://github.com/elom1213/JUN_Dnable.git
+commit : 9134e384db4c55669963573ee9fef8d445eb7fa7 2026-10-13
+dirty  : no
+synced : 2026-10-19T10:47:56

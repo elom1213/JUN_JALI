@@ -2,6 +2,9 @@
 
 > **작성** 2026-10-19 · 이 PC 에서 아래 순서를 그대로 실행해 확인했다(§6).
 > 진단 · 배경은 [0010_visemenet_feasibility.md](0010_visemenet_feasibility.md).
+>
+> ⭐ **2026-10-19 부터는 툴로 한다** — 설치 `setup_env.bat`, 변환 `Run_VisemeNet_Converter.bat`([0050](0050_converter_guide.md)),
+> 마야는 셸프 툴 `A00540_JaliLipSync`(`Maya_Python/JUN_All/docs/A00540_JaliLipSync.md`). 이 문서의 명령 · 스크립트 방식도 그대로 동작한다.
 
 전체 흐름은 두 단계다. **모델은 Maya 밖(일반 Python)에서 돌리고, Maya 는 결과 txt 를 키로 건다.**
 
@@ -175,6 +178,6 @@ mav.apply(JALI + r"\out\visemenet_intro.txt",
 | 단계 | 결과 |
 |------|------|
 | §1 환경 | Python 3.11.9 venv, `tensorflow-cpu` 2.15.1 — `visemenet_frozen.pb` 가 TF2 에서 **원본 코드 수정 없이** 로드됨 |
-| §2 추론 | `visemenet_intro` (1452, 22) 3.7초 · `coffee_xxxx` (364, 22) 1.6초. 원본 저자의 참조 출력과 비교 — Jaw/Lip 평균 차이 0.005, 비짐 활성 구간 대부분 겹침(예: MBP 490 / 458 프레임 중 435 겹침) |
+| §2 추론 | `visemenet_intro` (1452, 22) 3.7초 · `coffee_xxxx` (364, 22) 1.6초. 원본 저자의 참조 출력과 비교 — Jaw/Lip 평균 차이 0.005, 비짐 활성 구간 대부분 겹침(예: MBP 490 / 458 프레임 중 435 겹침). ⚠️ 나중에 알았다: 원본 모델은 **돌릴 때마다 결과가 조금 다르다**(추론 때도 dropout) — 그래서 '같다' 가 아니라 '비슷하다' 였다. 변환기는 결정적 모드가 기본([0050](0050_converter_guide.md) §4) |
 | §3 Maya | mayapy 2024 로 angela_JALI.ma 에 적용 — 23개 어트리뷰트 349키, 재생 중 턱 회전 1.9° ~ 6.6°, 재실행 시 키 수 그대로(섞이지 않음), 사운드 노드 1프레임 |
 | 미확인 | **Maya GUI 에서 소리와 함께 재생해 눈으로 본 것은 아직 아니다**(타임슬라이더 연결은 GUI 전용 코드) |

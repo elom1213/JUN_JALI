@@ -1,0 +1,200 @@
+QWidget {
+    background-color: #fbf8e9;
+    color: #3a3a3a;
+    font-size: 12px;
+}
+
+QLabel {
+    color: #3a3a3a;
+    background: transparent;
+}
+
+QPushButton {
+    background-color: #f0dd8f;
+    color: #3a3a3a;
+    border: 1px solid #e3c95f;
+    padding: 8px;
+    border-radius: 4px;
+}
+
+QPushButton:hover {
+    background-color: #f4e6a6;
+}
+
+QPushButton:pressed {
+    background-color: #e6cf73;
+}
+
+QLineEdit, QTextEdit, QPlainTextEdit, QListWidget, QSpinBox, QComboBox {
+    background-color: #ffffff;
+    color: #3a3a3a;
+    border: 1px solid #e3c95f;
+    padding: 4px;
+    border-radius: 3px;
+}
+
+QListWidget::item:selected {
+    background-color: #e3c95f;
+    color: #ffffff;
+}
+
+QComboBox:hover {
+    border: 1px solid #e3c95f;
+}
+
+QCheckBox {
+    color: #3a3a3a;
+    background: transparent;
+}
+
+QCheckBox::indicator {
+    width: 14px;
+    height: 14px;
+    border: 1px solid #e3c95f;
+    border-radius: 3px;
+    background-color: #ffffff;
+}
+
+QCheckBox::indicator:hover {
+    border: 1px solid #e3c95f;
+}
+
+QCheckBox::indicator:checked {
+    background-color: #e3c95f;
+    border: 1px solid #e3c95f;
+}
+
+QRadioButton {
+    color: #3a3a3a;
+    background-color: #ffffff;
+    border: 1px solid #e3c95f;
+    border-radius: 4px;
+    padding: 4px 8px;
+    margin: 2px 0;
+}
+
+QRadioButton::indicator {
+    width: 14px;
+    height: 14px;
+    border: 1px solid #e3c95f;
+    border-radius: 7px;
+    background-color: #ffffff;
+}
+
+QRadioButton::indicator:hover {
+    border: 1px solid #e3c95f;
+}
+
+QRadioButton::indicator:checked {
+    background-color: #e3c95f;
+    border: 1px solid #e3c95f;
+}
+
+QMenuBar {
+    background-color: #fbf8e9;
+    color: #3a3a3a;
+}
+
+QMenuBar::item:selected {
+    background-color: #e3c95f;
+}
+
+QMenu {
+    background-color: #fbf8e9;
+    color: #3a3a3a;
+}
+
+QMenu::item:selected {
+    background-color: #e3c95f;
+}
+
+QGroupBox {
+    border: 1px solid #e3c95f;
+    margin-top: 10px;
+    padding-top: 10px;
+}
+
+QGroupBox::title {
+    color: #b09736;
+}
+
+/* --- QSpinBox up/down buttons: define sub-controls so the arrow
+       buttons keep a clickable hit-area + arrow cursor once the QSpinBox
+       border/padding above is styled (Qt drops native arrows otherwise). --- */
+QSpinBox::up-button {
+    subcontrol-origin: border;
+    subcontrol-position: top right;
+    width: 16px;
+    background-color: #ffffff;
+    border-left: 1px solid #e3c95f;
+    border-top-right-radius: 3px;
+}
+
+QSpinBox::down-button {
+    subcontrol-origin: border;
+    subcontrol-position: bottom right;
+    width: 16px;
+    background-color: #ffffff;
+    border-left: 1px solid #e3c95f;
+    border-bottom-right-radius: 3px;
+}
+
+QSpinBox::up-button:hover, QSpinBox::down-button:hover {
+    background-color: #e3c95f;
+}
+
+QSpinBox::up-arrow {
+    image: url(@STYLES@/sb_up_dark.png);
+    width: 9px;
+    height: 9px;
+}
+
+QSpinBox::down-arrow {
+    image: url(@STYLES@/sb_down_dark.png);
+    width: 9px;
+    height: 9px;
+}
+
+
+/* ------------------------------------------------------------------
+   Disabled (비활성) 상태
+   위 규칙들이 색을 평면적으로 지정하면 Qt 기본 회색 처리가 덮여, setEnabled(False)
+   해도 그대로 밝게 보인다. 각 테마 팔레트를 배경 쪽으로 섞어 흐리게 표현한다.
+   ------------------------------------------------------------------ */
+
+QLabel:disabled,
+QCheckBox:disabled,
+QRadioButton:disabled,
+QGroupBox:disabled,
+QGroupBox::title:disabled {
+    color: #a4a29a;
+}
+
+QPushButton:disabled {
+    background-color: #f7edc5;
+    color: #9a9992;
+    border: 1px solid #f1e5b2;
+}
+
+QLineEdit:disabled,
+QTextEdit:disabled,
+QPlainTextEdit:disabled,
+QListWidget:disabled,
+QSpinBox:disabled,
+QComboBox:disabled {
+    background-color: #fdfcf4;
+    color: #a4a29a;
+    border: 1px solid #f1e5b2;
+}
+
+QCheckBox::indicator:disabled,
+QRadioButton::indicator:disabled {
+    background-color: #fdfcf4;
+    border: 1px solid #f1e5b2;
+}
+
+QCheckBox::indicator:checked:disabled,
+QRadioButton::indicator:checked:disabled {
+    background-color: #f1e5b2;
+    border: 1px solid #f1e5b2;
+}

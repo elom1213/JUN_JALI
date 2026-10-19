@@ -1,6 +1,12 @@
 # 툴 제작 계획서 — 환경 설치 · 변환기 · Maya 키 툴 · ARKit 매칭
 
 > **작성** 2026-10-19 · 이 문서만 보고 아래 네 작업을 끝낼 수 있게 썼다.
+> **진행 (2026-10-19)**: T1 · T2 · T3 구현 완료 — 사용 안내는 [0050](0050_converter_guide.md) · `Maya_Python/JUN_All/docs/A00540_JaliLipSync.md`.
+> §8 질문은 답이 없어 **권장안으로** 진행했다. 계획과 달라진 점: ① 변환 중 발견한 원본 모델의 **추론 무작위성**(dropout 상수) 때문에
+> `Inference` 옵션(결정적 기본 / 원본)을 더했다 ② 출력 줄 수가 `길이×100` 이 아니라 **끝 0.32초가 빠지는** 공식이라 E23 검사를 그 공식으로
+> ③ T3 의 `sound.py` · `rig_scan.py` 는 `scene.py` 하나로 ④ 로그 레벨 표기는 공용 로그 색과 맞춰 `[ERROR]`(계획의 `[ERR]` · `[STOP]` 대신).
+> **미확인**: 변환기 창이 실제 화면에 뜨는 것 · winget 자동 설치 · Windows 10 · 마야 GUI 드롭 설치와 소리 재생.
+>
 > 선행 문서: [0010 진단](0010_visemenet_feasibility.md) · [0020 사용법](0020_usage_example_maya.md) · [0040 ARKit 매칭](0040_jali_arkit_mapping.md)
 
 ---

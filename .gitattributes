@@ -1,0 +1,2 @@
+# Windows batch files need CRLF (cmd labels / goto break with LF)
+*.bat text eol=crlf
