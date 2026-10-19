@@ -1,3 +1,21 @@
+# JUN_JALI — VisemeNet 포크 `[JUN]`
+
+> [`junhwanjang/visemenet-inference`](https://github.com/junhwanjang/visemenet-inference) (`c20ec78`) 포크.
+> 목표: 같은 의미 · 다른 언어 음성으로 **JALI 리그 립싱크**를 자동 생성 (Maya → Unreal).
+
+| 문서 | 내용 |
+|------|------|
+| [docs/0010_visemenet_feasibility.md](docs/0010_visemenet_feasibility.md) | 진단 — 가능 여부, 필요 조건, 수정 계획 |
+| [docs/0020_usage_example_maya.md](docs/0020_usage_example_maya.md) | **사용법** — 예시 wav → 추론 → Maya JALI 리그(angela_JALI.ma) 키 |
+
+포크에서 더한 것: `requirements.txt`(확인된 버전), `examples/maya_apply_visemenet.py`(결과 txt → 리그 키), `docs/`.
+원본 코드(`inference.py` · `postprocess.py` · `visemenet_frozen.pb`)는 아직 손대지 않았다.
+라이선스 주의: 원본 VisemeNet 은 GPLv3 또는 상용(UMass) — 진단 문서 §4.
+
+---
+
+## 원본 README
+
 # visemenet-inference
 - Inference Demo of ["VisemeNet-tensorflow"](https://github.com/yzhou359/VisemeNet_tensorflow) 
     * VisemeNet is an audio-driven animator centric speech animation driving a JALI or standard FACS-based face-rigging from input audio. 

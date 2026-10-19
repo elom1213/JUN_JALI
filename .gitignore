@@ -127,3 +127,6 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+# [JUN_JALI] 추론 / Maya 결과물
+out/
