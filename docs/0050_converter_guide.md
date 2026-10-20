@@ -294,6 +294,7 @@ setup_mfa.bat --force             환경만 다시 만든다 (Miniforge · 모�
 
 ### 6.6 확인 기록 (2026-10-20, 영어 예시 2개 · angela 리그)
 
+- **재현성**: 같은 PC 의 다른 폴더(`C:\jun_mfa_test`)에 `mfa_env.lock.txt` 로 새로 설치 → `MFA SETUP OK`, 패키지 230개가 잠금 파일과 **완전히 같다**, 한국어 토크나이저 · 자가 검사 정렬 통과. 실제 다른 PC 는 미확인.
 - MFA 경계는 10 ms 격자 — 100fps 행과 그대로 맞물린다.
 - 사전에 없는 `VizimNet` → G2P 가 `vʲ ɪ z ɪ m n ɛ t` 로 만들어 정렬.
 - `visemenet_intro` 입술 음소 21개 — angela 의 `CNT_PHONEMES.MBP` · `FFF` 컨트롤이 **8 이상(0 ~ 10) 된 수: 오디오만 10 → 보정 21**
