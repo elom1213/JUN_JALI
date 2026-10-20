@@ -12,12 +12,13 @@
 | [docs/0050_converter_guide.md](docs/0050_converter_guide.md) | **설치 · 변환기 사용법** — `setup_env.bat` · `Run_VisemeNet_Converter.bat`, 오류 코드, 원본 모델의 무작위성 · 끝 0.32초 |
 | [docs/0060_transcript_mfa_plan.md](docs/0060_transcript_mfa_plan.md) | 개선 계획 — 대본 + Montreal Forced Aligner 로 비짐 보정 · 하이브리드 생성 (영 · 한 · 일) |
 | [docs/0070_advancedskeleton_lipsync_research.md](docs/0070_advancedskeleton_lipsync_research.md) | 조사 — AdvancedSkeleton 의 Audio2Face (NVIDIA → ARKit 52 리타깃) · Auto lipsync (MFA 1.1) 동작 과정과 0060 계획에 주는 의미 |
+| [docs/0080_transcript_correction_usage.md](docs/0080_transcript_correction_usage.md) | **사용법 — 대본으로 립싱크 보정** (v01.01): `setup_mfa.bat` → 대본 준비 → 변환기 Correct 모드 → Maya |
 
 **빠른 시작**: ① `setup_env.bat` 더블클릭(한 번 — PC 에 Python 3.12 ~ 3.14 만 있으면 이 폴더 전용 Python 3.11 을 받아 쓴다) → ② `Run_VisemeNet_Converter.bat` 더블클릭 → wav 넣고 `Convert`
 → ③ 마야에서 `Maya_Python/JUN_All/tools/A00540_JaliLipSync/__dragDrop_A00540.py` 를 드롭해 셸프 툴로 리그에 키.
 
 **대본 보정 (선택, v01.01)**: `setup_mfa.bat` 더블클릭(한 번 — 설치 폴더를 고른다, 약 6.5 GB) → 변환기 `Transcript` 를 `Correct with transcript (MFA)` 로,
-WAV 옆에 같은 이름의 대본(`.lab` / `.txt`, UTF-8) — 음소 구간으로 비짐을 보정한다 ([0050 §6](docs/0050_converter_guide.md)).
+WAV 옆에 같은 이름의 대본(`.lab` / `.txt`, UTF-8) — 음소 구간으로 비짐을 보정한다 ([0080 사용법](docs/0080_transcript_correction_usage.md) · [0050 §6](docs/0050_converter_guide.md)).
 
 포크에서 더한 것: `setup_env.bat` · `setup_mfa.bat`(+ `mfa_env.lock.txt` · `requirements_mfa.txt`) · `Run_VisemeNet_Converter.bat` · `tools/VisemeNet_Converter/`(스탠드얼론 변환기) · `saved_params/ipa_to_jali.json` · `tools/selftest.py` ·
 `vendor/Framework/`(Maya_Python 공용 위젯 복사본) · `requirements.txt` · `examples/maya_apply_visemenet.py` · `docs/`.
