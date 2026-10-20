@@ -1,10 +1,14 @@
 # -*- coding: utf-8 -*-
 # Python Script by Ji Hun Park
-# last Update date : 2026-10-19
+# last Update date : 2026-10-20
 # VisemeNet Converter - 추론 엔진 + 일괄 변환 (UI 비의존, docs/0030_tool_plan.md §4.3 ~ §4.5)
 #
 # 흐름: preflight(전부 검사) -> 하나라도 실패면 아무것도 변환하지 않음 -> run_batch(하나씩 추론 · 쓰기)
 #       -> 변환 중 오류가 나면 남은 파일은 건너뛰고 멈춘다. (사용자 요청: 문제가 생기면 중단 + 이유를 로그로)
+#
+# Correct 모드 (docs/0060_transcript_mfa_plan.md 안 B): wav 옆의 대본(<이름>.lab / .txt)을 MFA 로 정렬해
+#   음소 구간으로 비짐을 보정한다. 대본이 없는 파일은 오디오만으로 변환한다(대본은 선택 입력).
+#   정렬은 run_batch 시작 때 대본 있는 파일을 묶어 **한 번에** 한다. 정렬에 실패한 파일은 W10 경고 후 오디오만.
 #
 # 원본 inference.py · postprocess.py 는 수정하지 않는다. 다만 predict_outputs 의 기본 경로가 현재 폴더 기준
 # 상대경로("./saved_params/...")라 절대경로를 넘긴다. TensorFlow import 는 느리므로(~5초) load() 에서만.
@@ -19,7 +23,7 @@ import time
 
 import numpy as np
 
-from . import output_writer
+from . import aligner, output_writer, viseme_merge
 from .wav_check import WavError, check_wav
 
 
@@ -170,11 +174,36 @@ class Job(object):
         self.info = info
         self.txt_path = txt_path
         self.json_path = json_path
+        self.transcript_path = None
+        self.transcript = ""
 
 
-def preflight(wav_paths, out_dir, overwrite, max_seconds, write_json=True):
-    """전부 검사한다. Returns (jobs, problems). problems = [(wav, code, message)] - 비어야 변환 가능."""
+class AlignConfig(object):
+    """Correct 모드 설정. preflight 가 install(MfaInstall) 을 채운다."""
+
+    def __init__(self, language="English", mfa_folder="", params=None):
+        self.language = language
+        self.mfa_folder = mfa_folder
+        self.params = params or viseme_merge.Params()
+        self.install = None
+
+
+def preflight(wav_paths, out_dir, overwrite, max_seconds, write_json=True, align_cfg=None, repo_root=None):
+    """전부 검사한다. Returns (jobs, problems). problems = [(wav, code, message)] - 비어야 변환 가능.
+
+    align_cfg 가 있으면(Correct 모드) MFA 설치 · 언어 모델(E30 · E31) 과 대본(E32) 도 검사한다.
+    """
     jobs, problems = [], []
+    if align_cfg is not None:
+        root = repo_root or os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(
+            os.path.dirname(os.path.abspath(__file__))))))
+        align_cfg.install = aligner.find_install(root, align_cfg.mfa_folder)
+        if align_cfg.install is None:
+            return [], [("", "E30", "MFA not found - set the MFA folder or run setup_mfa.bat")]
+        try:
+            aligner.check_models(align_cfg.install, align_cfg.language)
+        except aligner.AlignError as e:
+            return [], [("", e.code, e.message)]
 
     if out_dir:
         try:
@@ -200,6 +229,22 @@ def preflight(wav_paths, out_dir, overwrite, max_seconds, write_json=True):
             continue
         claimed[key] = wav
 
+        # 결과 txt 가 대본(같은 이름 .txt)을 덮어쓰면 안 된다 - 모드와 상관없이 막는다
+        if os.path.isfile(txt) and not aligner.looks_like_viseme_txt(txt):
+            problems.append((wav, "E34", "output would overwrite the transcript {0} - choose an output folder "
+                                         "or rename the transcript to .lab".format(os.path.basename(txt))))
+            continue
+
+        transcript_path, transcript = None, ""
+        if align_cfg is not None:
+            transcript_path = aligner.transcript_path(wav)
+            if transcript_path:
+                try:
+                    transcript = aligner.read_transcript(transcript_path)
+                except aligner.AlignError as e:
+                    problems.append((wav, e.code, e.message))
+                    continue
+
         if not overwrite:
             exists = [p for p in ((txt, js) if write_json else (txt,)) if os.path.exists(p)]
             if exists:
@@ -209,17 +254,20 @@ def preflight(wav_paths, out_dir, overwrite, max_seconds, write_json=True):
             problems.append((wav, "E10", "cannot write to {0}".format(os.path.dirname(txt))))
             continue
 
-        jobs.append(Job(wav, info, txt, js))
+        job = Job(wav, info, txt, js)
+        job.transcript_path, job.transcript = transcript_path, transcript
+        jobs.append(job)
     return jobs, problems
 
 
-def run_batch(engine, jobs, write_json, converter_name, log, progress=None, should_stop=None):
+def run_batch(engine, jobs, write_json, converter_name, log, progress=None, should_stop=None, align_cfg=None):
     """jobs 를 차례로 변환한다. 오류가 나면 멈춘다.
 
     Args:
         log: log(level, message) - level 은 "OK" / "INFO" / "WARN" / "ERROR" / "DONE".
         progress: progress(done, total, name) 또는 None.
         should_stop: () -> bool. True 면 다음 파일 전에 멈춘다.
+        align_cfg: AlignConfig (preflight 를 거친 것) 또는 None(오디오만).
 
     Returns:
         (written_jobs, stopped_reason) - 다 끝나면 stopped_reason 은 None.
@@ -230,6 +278,19 @@ def run_batch(engine, jobs, write_json, converter_name, log, progress=None, shou
     t0 = time.time()
 
     log("INFO", "inference mode: {0}".format(engine.mode_name))
+    aligned, phone_map, mfa_name = {}, None, ""
+    if align_cfg is not None:
+        try:
+            aligned, phone_map, mfa_name = _align_all(jobs, align_cfg, log, progress)
+        except (aligner.AlignError, ValueError, OSError) as e:
+            code = getattr(e, "code", "E33")
+            log("ERROR", "{0} {1}".format(code, getattr(e, "message", str(e))))
+            if getattr(e, "detail", None):
+                log("INFO", "detail: {0}".format(e.detail))
+            return written, "{0} {1}".format(code, getattr(e, "message", str(e)))
+        if should_stop and should_stop():
+            return written, "stopped by user after alignment"
+
     for i, job in enumerate(jobs):
         name = os.path.basename(job.wav_path)
         if should_stop and should_stop():
@@ -245,11 +306,20 @@ def run_batch(engine, jobs, write_json, converter_name, log, progress=None, shou
             if out.shape[0] < 1 or abs(out.shape[0] - expected) > ROW_TOLERANCE:
                 raise ConvertError("E23", "unexpected output length {0} rows (expected {1})"
                                    .format(out.shape[0], expected))
+            result = aligned.get(job.wav_path)
+            correction = None
+            if result is not None and result.ok:
+                out, report = viseme_merge.correct(out, result.phones, phone_map, align_cfg.params)
+                correction = _correction_info(job, result, report, align_cfg, mfa_name)
+                _log_correction(log, name, result, report)
             try:
                 output_writer.write_txt(job.txt_path, out)
                 if write_json:
                     output_writer.write_json(job.json_path, job.info, out, COLUMNS, MODEL_FPS,
-                                             MODEL_FILE, converter_name, engine.mode_name)
+                                             MODEL_FILE, converter_name, engine.mode_name, correction)
+                if correction is not None:
+                    output_writer.write_phones(output_writer.phones_path(job.txt_path), job.info,
+                                               result.words, result.phones, correction)
             except OSError as e:
                 raise ConvertError("E24", "cannot write {0}: {1}".format(job.txt_path, e.strerror or e))
         except ConvertError as e:
@@ -264,13 +334,65 @@ def run_batch(engine, jobs, write_json, converter_name, log, progress=None, shou
             truncation_noted = True
 
         written.append(job)
-        log("OK", "{0}  -> {1}  ({2} rows, {3:.1f} s)".format(
-            name, os.path.basename(job.txt_path), out.shape[0], time.time() - t))
+        log("OK", "{0}  -> {1}  ({2} rows, {3}, {4:.1f} s)".format(
+            name, os.path.basename(job.txt_path), out.shape[0],
+            "corrected" if correction is not None else "audio only", time.time() - t))
 
     if progress:
         progress(total, total, "")
     log("DONE", "{0} converted in {1:.1f} s".format(len(written), time.time() - t0))
     return written, None
+
+
+def _align_all(jobs, cfg, log, progress):
+    """대본 있는 파일을 한 번에 MFA 로 정렬한다. Returns ({wav: AlignResult}, PhoneMap, 'MFA x.y.z')."""
+    root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(
+        os.path.abspath(__file__))))))
+    phone_map = viseme_merge.load_default_map(root, COLUMNS)
+    items = [(job.wav_path, job.wav_path, job.transcript) for job in jobs if job.transcript]
+    for job in jobs:
+        if not job.transcript:
+            log("INFO", "{0}  no transcript (.lab / .txt next to the WAV) - audio only"
+                .format(os.path.basename(job.wav_path)))
+    if not items:
+        return {}, phone_map, ""
+    if progress:
+        progress(0, len(jobs), "aligning transcripts (MFA)")
+    mfa_name = "MFA " + (aligner.version(cfg.install) or "?")
+    results = aligner.align(cfg.install, cfg.language, items, log=log)
+    for key, res in results.items():
+        if not res.ok:
+            log("WARN", "{0}  W10 alignment failed - audio only (check that the transcript matches the speech)"
+                .format(os.path.basename(key)))
+    return results, phone_map, mfa_name
+
+
+def _correction_info(job, result, report, cfg, mfa_name):
+    acoustic, dictionary, _g2p = aligner.LANGUAGES[cfg.language]
+    return {
+        "mode": "correct",
+        "language": cfg.language,
+        "transcript_file": os.path.abspath(job.transcript_path).replace("\\", "/"),
+        "transcript": job.transcript,
+        "aligner": "{0} ({1} / {2})".format(mfa_name, acoustic, dictionary),
+        "phone_segments": report["segments"],
+        "unmapped_phones": report["unmapped"],
+        "oov_words": [w[2] for w in result.words if w[2] in ("<unk>", "spn")],
+        "params": report["params"],
+    }
+
+
+def _log_correction(log, name, result, report):
+    oov = sum(1 for p in result.phones if p[2] == "spn")
+    if oov:
+        log("WARN", "{0}  W11 {1} word(s) not in the dictionary - VisemeNet values kept there"
+            .format(name, oov))
+    if report["unmapped"]:
+        log("WARN", "{0}  W13 phones not in ipa_to_jali.json: {1} - VisemeNet values kept there"
+            .format(name, " ".join(report["unmapped"])))
+    if report["beyond_rows"]:
+        log("INFO", "{0}  {1} phone(s) in the last 0.32 s (beyond the model output) were skipped"
+            .format(name, report["beyond_rows"]))
 
 
 def expected_rows(n_samples, sample_rate=44100):

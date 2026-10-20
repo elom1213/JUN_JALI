@@ -139,3 +139,8 @@ tools/*/data/
 # [JUN_JALI] private Python downloaded by setup_env.bat
 .python/
 .python_dl/
+
+# [JUN_JALI] Montreal Forced Aligner - setup_mfa.bat (default install folder, chosen path, log)
+.mfa/
+mfa_path.local.txt
+setup_mfa.log

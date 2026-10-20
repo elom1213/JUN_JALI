@@ -1,0 +1,4 @@
+# Korean tokenizer for Montreal Forced Aligner (pip wheels, not on conda-forge) - installed by setup_mfa.bat
+# MFA 3.4.3 tokenization/korean.py: from mecab import MeCab
+python-mecab-ko==1.3.7
+python-mecab-ko-dic==2.1.1.post2

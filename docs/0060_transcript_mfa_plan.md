@@ -1,6 +1,9 @@
 # 대본 + MFA 로 페이셜 품질 개선 — 계획서
 
 > **작성** 2026-10-20 · 아직 **실험 전** 계획이다. 실측이 끝나면 각 절에 결과를 덧붙인다.
+> **진행 (2026-10-20, `dev` 브랜치)**: **M0 · M1 · M2 완료** (영어) — 변환기 v01.01 `Correct with transcript (MFA)`, `setup_mfa.bat`.
+> 사용 안내 · 확인 기록은 [0050 §6](0050_converter_guide.md). 결과: angela 에서 입술 음소 21개 중 MBP · FFF 컨트롤 8 이상이 **10 → 21**.
+> 계획과 달라진 점은 §10. **미확인**: 눈으로 보는 품질(V4 의 육안 부분), 한국어 · 일본어 실제 음성(M3 ~ M4), 잠금 파일로 다른 PC 설치는 이 PC 의 다른 폴더로만 확인.
 > 선행 문서: [0010 진단](0010_visemenet_feasibility.md) · [0030 툴 계획](0030_tool_plan.md) · [0040 ARKit 매칭](0040_jali_arkit_mapping.md) · [0050 변환기 사용법](0050_converter_guide.md)
 > 관련 조사: [0070 AdvancedSkeleton 립싱크](0070_advancedskeleton_lipsync_research.md) — 같은 MFA 방식의 선행 사례 · Audio2Face 대안
 
@@ -206,9 +209,9 @@ UI 문자열은 영어로 한다.
 
 | 단계 | 할 일 | 완료 조건 |
 |------|-------|-----------|
-| **M0 설치 확인** | conda 환경 `mfa` 설치, `english_mfa` · `korean_mfa` · `japanese_mfa` 다운로드 | **V1** 프레임 간격 확인 · **V2** 한국어 의존성 확인 · Windows 11 에서 `mfa align` 동작 |
-| **M1 영어 정렬** | `test_audio/visemenet_intro.wav` + 대본으로 TextGrid 생성 | **V3** 음소 경계가 파형 · VisemeNet 피크와 ±20ms 안에서 맞는지 (Praat 로 육안) |
-| **M2 안 B** | `viseme_merge.correct()` + 변환기 `Correct` 모드 | **V4** angela 에서 p · b · m · f · v 폐쇄가 **매번** 보인다 (전 · 후 플레이블라스트 비교) |
+| **M0 설치 확인** ✅ | conda 환경 `mfa` 설치, `english_mfa` · `korean_mfa` · `japanese_mfa` 다운로드 | **V1** ✅ 경계 10 ms 격자 · **V2** ✅ 한국어 = `python-mecab-ko` (MFA 소스 `tokenization/korean.py`) · `mfa align` 동작 ✅ |
+| **M1 영어 정렬** ✅ | `test_audio/visemenet_intro.wav` + 대본으로 TextGrid 생성 | **V3** 단어 31개 정렬, OOV `VizimNet` 은 G2P 로 처리 ✅ — Praat 육안 확인은 사용자 몫 |
+| **M2 안 B** ✅ | `viseme_merge.correct()` + 변환기 `Correct` 모드 | **V4** 수치 ✅ (MBP · FFF ≥ 8: 10 → 21 / 21) — 플레이블라스트 육안 비교는 사용자 몫 (`out/m2/*.ma`) |
 | **M3 매핑표** | §4 표를 json 으로, angela 에서 음소별 확인 | **V5** 한 · 일 고유 모음(ㅡ · ㅓ · う) · 자음(ɕ · ɾ) 모양 확인 |
 | **M4 다국어 B** | 한국어 · 일본어 짧은 녹음(5 ~ 10초) + 대본 각 1개 | **V6** Audio only 대비 개선이 육안으로 분명한가 |
 | **M5 안 A** | `viseme_merge.hybrid()` + `Hybrid` 모드 | **V7** 3개 언어에서 B 보다 낫거나 같은가 — 아니면 B 를 기본으로 |
@@ -252,3 +255,28 @@ UI 문자열은 영어로 한다.
 - MFA 문서 — [Example: Aligning a demo corpus](https://montreal-forced-aligner.readthedocs.io/en/latest/first_steps/alignment_example.html) (일본어 Sudachi 의존성 포함)
 - Edwards et al., *JALI: An Animator-Centric Viseme Model for Expressive Lip Synchronization*, SIGGRAPH 2016
 - Zhou et al., *VisemeNet: Audio-Driven Animator-Centric Speech Animation*, SIGGRAPH 2018
+
+---
+
+## 10. M0 ~ M2 를 하며 계획과 달라진 점 (2026-10-20)
+
+| 항목 | 계획 | 실제 | 이유 |
+|------|------|------|------|
+| MFA 설치 | 별도 conda 환경 `mfa` | **`setup_mfa.bat`** — 폴더 하나(`miniforge\` · `env\` · `models\`)에 전부, 경로 선택 · 공백/한글 경로 거부 · Miniforge SHA-256 · `mfa_env.lock.txt` 로 버전 고정 | 다른 PC 에서 같은 환경 + 설치 경로 선택 (사용자 요청) |
+| 용량 | 수 GB | **약 6.5 GB** (MFA 3 의존성. 내려받은 tarball 은 지운다) · 최소 여유 10 GB | 실측 |
+| 한국어 의존성 | 미확인 | `python-mecab-ko` 1.3.7 (+ `-dic`) — pip, `requirements_mfa.txt`. `jamo` 는 MFA 3.4.3 이 쓰지 않아 뺐다 | V2 |
+| 사전에 없는 단어 | W11 + G2P | `mfa align --g2p_model_path` 로 **정렬 때 G2P** — G2P 모델 3개를 setup 이 받는다. 그래도 실패한 단어(`spn`)만 W11 | MFA 3.4.3 옵션 |
+| 모델 확인 | `mfa model inspect` | **파일 존재로 확인** | MFA 3.4.3 의 `model inspect dictionary` 가 `AttributeError` 로 죽는다 |
+| UI | TSL 에 `Transcript` 열 | **`Transcript (optional)` 상자** (Mode · Language · MFA folder) + `Check Files` · 목록 선택 때 로그에 `transcript: …` | 공용 TSL 위젯은 문자열 목록이라 열을 더하려면 Framework 를 고쳐야 한다 |
+| 대본 이름 | `.txt` | `.lab` 우선, `.txt` 도 받는다 (숫자 22열 txt 는 VisemeNet 결과로 보고 제외) | 결과 `<이름>.txt` 와 이름이 겹친다 |
+| 오류 코드 | E30 ~ E32 | + **E33** (MFA 실행 실패) · **E34** (결과가 대본을 덮음 — **Audio only 모드에서도** 막는다) | 출력 폴더를 비우면 기존 동작으로도 대본을 덮을 수 있었다 |
+| 경고 | W10 ~ W12 | W10 · W11 + **W13** (매핑표에 없는 음소). **W12(정렬 점수 낮은 구간) 보류** | 점수 기준값을 정할 근거가 아직 없다 — 실제 음성으로 분포를 본 뒤 |
+| 매핑 | §4 초안 | 사전 전수 검사로 보충: `ʈ ɖ` → LNTD, `ɜ` → Schwa, **`t̪ d̪` → Th**(영어 사전의 th 변이), **`ʋ` 는 중립**(영어 사전이 *we* · *want* 와 *activates* 양쪽에 씀 → 오디오가 정한다), `ɴː` 도 동화 규칙 | 실제 정렬 결과 |
+| 정렬 단위 | 파일마다 | **일괄 변환 전체를 한 번에** (2개 26초, 대부분 MFA 시작 비용) | 속도 |
+
+**M3 에 넘길 것**
+
+- 리그 적용(`examples/maya_apply_visemenet.py` · A00540)은 **`Eu` · `JY` 열을 쓰지 않는다**(원본 매핑). `ɯ`(ㅡ · う) → `Ih + Eu` 중 리그에는 `Ih`(IEE)만 간다.
+  한 · 일 모음을 제대로 보이려면 매핑표와 함께 리그 매핑도 손봐야 한다.
+- 보정값(floor 0.6 · 입술 0.8 · 감쇠 ×0.5 · 무음 ×0.2 · 램프 30 ms)은 초안 — 육안 확인 뒤 조정.
+- 예시 대본의 `cures` 는 실제 발화가 *curves* 일 가능성 — 맞다면 v 구간이 빠진 채 정렬됐다.

@@ -77,10 +77,29 @@ def main(work):
     win.on_check()
     check("check passes with overwrite", "[DONE] All 2 file(s) passed the check." in win.log_view.toPlainText())
 
-    # 5) 설정 저장 / 복원
+    # 5) Correct 모드 (대본 + MFA) - setup_mfa.bat 을 실행한 PC 에서만
+    has_mfa = mw.aligner.find_install(ROOT) is not None
+    check("transcript widgets off in Audio only mode", not win.cmb_lang.isEnabled())
+    win.cmb_align.setCurrentIndex(1)
+    check("transcript widgets on in Correct mode", win.cmb_lang.isEnabled() and win.le_mfa.isEnabled())
+    if has_mfa:
+        win.on_clear()
+        win._add_paths([coffee])
+        win.log_view.clear()
+        win.on_convert()
+        wait_worker(win, 600000)
+        log = win.log_view.toPlainText()
+        check("correct mode: aligned and corrected", "MFA align: 1 file(s)" in log and "corrected" in log)
+        check("correct mode: phones.json written", os.path.isfile(os.path.join(out_dir, "coffee_xxxx.phones.json")))
+    else:
+        print("SKIP correct-mode conversion (MFA not installed - run setup_mfa.bat)")
+
+    # 6) 설정 저장 / 복원
+    n_items = win.tsl.count()
     win.close()
     win2 = mw.MainWindow()
-    check("settings restored", win2.tsl.count() == 2 and win2.le_out.text() == out_dir and win2.cb_overwrite.isChecked())
+    check("settings restored", win2.tsl.count() == n_items and win2.le_out.text() == out_dir
+          and win2.cb_overwrite.isChecked() and win2.cmb_align.currentIndex() == 1)
     win2.close()
 
     print("RESULT", "OK" if all(results) else "{0} FAILED".format(results.count(False)))

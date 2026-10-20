@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 # Python Script by Ji Hun Park
-# last Update date : 2026-10-19
+# last Update date : 2026-10-20
 # VisemeNet Converter - 창 설정 저장 (목록 · 출력 폴더 · 옵션). data/settings.json, gitignore 대상.
 
 import json
@@ -17,6 +17,9 @@ DEFAULTS = {
     "overwrite": False,
     "max_seconds": 120,
     "last_dir": "",
+    "align_mode": "audio",          # "audio" | "correct" (대본 + MFA)
+    "language": "English",
+    "mfa_folder": "",               # 비면 mfa_path.local.txt (setup_mfa.bat 이 씀)
 }
 
 

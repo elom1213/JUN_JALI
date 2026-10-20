@@ -1,12 +1,13 @@
 # 설치 · VisemeNet Converter 사용 안내
 
-> **작성** 2026-10-19 · 대상: `setup_env.bat` · `Run_VisemeNet_Converter.bat` · `tools/VisemeNet_Converter` v01.00
-> · 마야 쪽은 `Maya_Python/JUN_All/docs/A00540_JaliLipSync.md` · 계획 [0030](0030_tool_plan.md)
+> **작성** 2026-10-19 · **갱신** 2026-10-20 (v01.01 대본 보정 — §6) · 대상: `setup_env.bat` · `Run_VisemeNet_Converter.bat` ·
+> `setup_mfa.bat` · `tools/VisemeNet_Converter` v01.01
+> · 마야 쪽은 `Maya_Python/JUN_All/docs/A00540_JaliLipSync.md` · 계획 [0030](0030_tool_plan.md) · 대본 보정 계획 [0060](0060_transcript_mfa_plan.md)
 
 ```
 ① setup_env.bat (한 번)  →  ② Run_VisemeNet_Converter.bat  →  wav 목록 · 출력 폴더 · Convert
-                                                              ↓
-                                       <이름>.txt + <이름>.visemenet.json
+   (+ setup_mfa.bat — 대본 보정을 쓸 때만, 한 번)                 ↓
+                                       <이름>.txt + <이름>.visemenet.json (+ <이름>.phones.json)
                                                               ↓
                               ③ Maya: JALI LipSync 셸프 버튼 (A00540) → 리그에 키
 ```
@@ -80,6 +81,7 @@ venv 는 `python.exe` 가 실제로 생겼는지 본다.
    - `Overwrite existing` (기본 끔) — 끄면 이미 있는 결과 때문에 멈춘다(E09)
    - `Max length (sec)` (기본 120) — 파일 하나를 통째로 처리하므로 아주 긴 파일은 나눌 것
    - `Inference` — **`Deterministic (recommended)`** / `Original - random dropout` (§4)
+   - `Transcript (optional)` — `Audio only` (기본) / `Correct with transcript (MFA)` (§6)
 4. **`Check Files`** — 변환 없이 검사만. **`Convert`** — 검사 → 변환. `Stop` 은 지금 파일이 끝나면 멈춘다.
 
 설정 · 목록은 창을 닫을 때 저장되어 다음에 그대로 열린다(`tools/VisemeNet_Converter/data/settings.json`).
@@ -89,7 +91,8 @@ venv 는 `python.exe` 가 실제로 생겼는지 본다.
 | 파일 | 내용 |
 |------|------|
 | `<이름>.txt` | 한 줄 = 10ms, 22개 값 (`Jaw Lip` + 비짐 20). 원본 README 와 같은 형식 |
-| `<이름>.visemenet.json` | 원본 WAV 경로 · 길이 · 열 이름 · fps · 줄 수 · 추론 모드 |
+| `<이름>.visemenet.json` | 원본 WAV 경로 · 길이 · 열 이름 · fps · 줄 수 · 추론 모드 (Correct 모드면 `correction` 도) |
+| `<이름>.phones.json` | Correct 모드에서만 — MFA 단어 · 음소 구간 (§6.4) |
 
 ---
 
@@ -112,6 +115,8 @@ venv 는 `python.exe` 가 실제로 생겼는지 본다.
 | E11 | `two files would write the same output` | 다른 폴더의 같은 이름 WAV — 이름을 바꾸거나 따로 변환 |
 | E20 | `model file missing` | 저장소가 불완전 — 다시 받기 |
 | E21 ~ E24 | `inference failed` · `NaN` · `unexpected output` · `cannot write` | 로그의 `detail` 줄을 확인 |
+| **E34** | `output would overwrite the transcript` | 출력 폴더를 비워 둬서 결과 `<이름>.txt` 가 **같은 이름의 대본**을 덮게 됐다 → 출력 폴더를 정하거나 대본을 `.lab` 으로 |
+| E30 ~ E33 | (Correct 모드) | §6.5 |
 
 **경고(멈추지 않음)**: `W01 stereo - only the left channel is used`(모델은 왼쪽 채널만 쓴다) · `W02 clipping detected`.
 `'frame will be truncated' ... is normal at 44.1 kHz` 는 정상 안내다(모델이 그렇게 학습됐다).
@@ -158,8 +163,11 @@ inverted dropout 이라 이것이 곧 dropout 의 기댓값 추론이다.
 |------|------|
 | `tools/VisemeNet_Converter/launch.py` | 진입점. `sys.path` = 저장소 루트 + `vendor/`. 시작 오류는 메시지 창 + `data/startup_error.log` |
 | `app/core/wav_check.py` | `check_wav()` — E01~E08, W01~W02 |
-| `app/core/converter.py` | `Engine`(모델 1회 로드, 결정적 모드), `preflight()`(E09~E11), `run_batch()`(E20~E24, Stop), `expected_rows()` |
-| `app/core/output_writer.py` | txt(np.savetxt) · json, 임시 파일 → 이름 바꾸기 |
+| `app/core/converter.py` | `Engine`(모델 1회 로드, 결정적 모드), `preflight()`(E09~E11 · E30~E32 · E34), `run_batch()`(E20~E24, Stop, 정렬 · 보정), `expected_rows()` |
+| `app/core/aligner.py` | MFA 찾기(`mfa_path.local.txt`) · 대본 찾기 · 한 번에 정렬(`mfa align`, G2P) · TextGrid 읽기 — E30~E33 |
+| `app/core/viseme_merge.py` | 안 B 보정(`correct()`) · IPA 매핑(`PhoneMap`) — 순수 numpy |
+| `saved_params/ipa_to_jali.json` | MFA 음소(IPA) → JALI 비짐 가중치 |
+| `app/core/output_writer.py` | txt(np.savetxt) · json · phones.json, 임시 파일 → 이름 바꾸기 |
 | `app/ui/main_window.py` | 창 + `ConvertWorker`(QThread) |
 | `tools/selftest.py` | 설치 마지막 검사 |
 | `tools/sync_framework.py` | `vendor/Framework` 를 `Maya_Python/JUN_All/Framework` 에서 다시 복사 (출처 커밋 `vendor/FRAMEWORK_SOURCE.txt`) |
@@ -169,8 +177,12 @@ inverted dropout 이라 이것이 곧 dropout 의 기댓값 추론이다.
 ```
 tools\VisemeNet_Converter\tests\make_bad_wavs.py <작업폴더>   검사 규칙 13개 (나쁜 wav 를 만들어 코드 확인)
 tools\VisemeNet_Converter\tests\test_core.py     <작업폴더>   일괄 변환 17개 (사전검사 중단 · 결정성 · Stop · E09/E11/E20/E21)
-tools\VisemeNet_Converter\tests\test_ui.py       <작업폴더>   오프스크린 UI 12개 (실제 Convert 경로 · 한글 경로 · 설정 복원)
+tools\VisemeNet_Converter\tests\test_ui.py       <작업폴더>   오프스크린 UI 16개 (실제 Convert 경로 · 한글 경로 · Correct 모드 · 설정 복원)
+tools\VisemeNet_Converter\tests\test_merge.py    <작업폴더>   보정 · 매핑 · TextGrid · 대본 찾기 39개 (MFA 없이 합성 데이터, 사전 음소 전수 검사)
+tools\VisemeNet_Converter\tests\test_align.py    <작업폴더>   Correct 모드 통합 16개 (실제 MFA — setup_mfa.bat 뒤)
 ```
+
+앞의 셋은 같은 작업 폴더를 순서대로(`make_bad_wavs` 가 만든 파일을 뒤가 쓴다). `test_merge` · `test_align` 은 따로.
 
 **확인 기록 (2026-10-20, Python 3.14 대응)**: 저장소 사본을 짧은 경로에 두고, 가짜 `py`(3.9~3.11 = 보고와 같은 오류 출력 + 종료 코드 0, 기본 = 3.14)와
 가짜 `python`(3.14)만 PATH 에 둔 채 `setup_env.bat --yes` → 3.14 감지 · 전용 Python 받기(SHA-256) · venv · 패키지 · 자가 검사 `SETUP OK`(87초, pip 캐시 있음),
@@ -180,3 +192,111 @@ tools\VisemeNet_Converter\tests\test_ui.py       <작업폴더>   오프스크�
 **확인 기록 (2026-10-19, Windows 11)**: 위 시험 전부 통과 · `.venv` 없는 상태에서 `setup_env.bat` → `SETUP OK` 84초(pip 캐시 있음) ·
 재실행 8초 · PATH 에 파이썬이 없을 때 안내 후 종료 · `Run_VisemeNet_Converter.bat` → 시작 오류 없이 이벤트 루프 진입.
 **미확인**: 실제 화면에 뜬 창(내 셸에서는 보이지 않는 세션), winget 자동 설치, Windows 10.
+
+---
+
+## 6. 대본 보정 — Correct 모드 (v01.01)
+
+음성만으로는 입 모양이 덜 나오는 문제(특히 **p · b · m 에서 입술이 안 닫힘**)를, 같은 발화의 **대본**으로 고친다.
+대본을 Montreal Forced Aligner(MFA)로 음성에 맞춰 **음소마다 시작 · 끝 시간**을 얻고, 그 구간에서 비짐을 보정한다.
+설계와 이유는 [0060](0060_transcript_mfa_plan.md) 안 B.
+
+### 6.1 설치 — `setup_mfa.bat` (한 번, 선택)
+
+MFA 는 추론 `.venv` 와 **섞지 않고** 따로 설치한다. 인터넷 필요, 약 **6.5 GB**, 처음 5 ~ 15분.
+
+```
+setup_mfa.bat                     질문에 답한다 (Enter = 기본 폴더 <저장소>\.mfa)
+setup_mfa.bat D:\tools\mfa        폴더를 인자로
+setup_mfa.bat --yes --nopause     묻지 않고 기본 폴더 (스크립트용)
+setup_mfa.bat --force             환경만 다시 만든다 (Miniforge · 모델은 유지)
+```
+
+| 단계 | 하는 일 |
+|------|--------|
+| 1/5 | 설치 폴더 결정 — 인자 → 질문 → Enter = 기본값(`<저장소>\.mfa`, 이미 설치했다면 그 폴더). **공백 · 한글이 없는 로컬 경로만** 받는다(conda · Kaldi 가 실패한다 — 한글 사용자 이름 아래 `C:\Users\홍길동\...` 도 안 된다). 여유 공간 10 GB 미만이면 중단 |
+| 2/5 | **Miniforge 26.7.2-0** 을 받아 **SHA-256 확인** 후 조용히 설치 — "just me", **PATH · 레지스트리 · 바로가기 변경 없음** |
+| 3/5 | MFA 환경 — 저장소의 **`mfa_env.lock.txt` 가 있으면 그 정확한 버전으로**(다른 PC 도 같은 환경), 없으면 고정 목록(`montreal-forced-aligner=3.4.3 python=3.11 sudachipy sudachidict-core`). 한국어 토크나이저 `python-mecab-ko` 는 pip(`requirements_mfa.txt`, 버전 고정) |
+| 4/5 | 모델 — 음향 모델 · 사전 `english_mfa` · `korean_mfa` · `japanese_mfa` + G2P(사전에 없는 단어의 발음) `english_us_mfa` · `korean_mfa` · `japanese_mfa` |
+| 5/5 | 자가 검사 — `test_audio\coffee_xxxx.wav` 를 실제로 정렬. 처음 설치면 `mfa_env.lock.txt` 를 만든다 |
+
+`MFA SETUP OK` 가 나오면 끝. 선택한 폴더는 `mfa_path.local.txt` (gitignore) 에 저장되고 변환기가 읽는다. 로그 `setup_mfa.log`.
+
+설치 폴더 구조 — **폴더 하나만 지우면 제거된다**:
+
+```
+<폴더>\miniforge\   conda 본체
+<폴더>\env\         MFA 환경 (mfa.exe)
+<폴더>\models\      MFA_ROOT_DIR - 모델 · 사전 · MFA 임시 파일 (기본 Documents\MFA 대신)
+```
+
+**다른 PC**: 저장소를 받고 `setup_mfa.bat` 더블클릭 → 폴더를 고른다. `mfa_env.lock.txt` · `requirements_mfa.txt` 가 버전을 고정하므로
+이 PC 와 같은 환경이 된다.
+
+| 실패 메시지 | 해결 |
+|------------|------|
+| `the folder path must not contain spaces or non-ASCII characters` | `C:\mfa` 처럼 공백 · 한글 없는 경로 |
+| `only N GB free` | 다른 드라이브(`D:\mfa`) |
+| `Miniforge download failed` | 인터넷 · 프록시 확인 |
+| `Could not create the MFA environment` | 로그 끝 15줄이 나온다. `CondaHTTPError` · `SSL` 이면 네트워크 · 프록시 |
+| `could not download the ... model` | 네트워크. 다시 실행하면 받은 것은 건너뛴다 |
+
+### 6.2 대본 준비
+
+- WAV 와 **같은 폴더 · 같은 이름**: `<이름>.lab` (권장) 또는 `<이름>.txt`. 둘 다 있으면 `.lab`.
+- **UTF-8**. 실제로 말한 단어만 — 숫자 · 기호는 읽는 대로(`2018` → `twenty eighteen`), 무대 지시 · 화자 이름 빼기.
+  **말하지 않은 단어가 있거나 철자가 다르면 그 주변 정렬이 틀어진다** (§6.6).
+- 대본이 없는 WAV 는 그대로 **오디오만으로** 변환한다 (멈추지 않는다).
+- `.txt` 대본을 쓰면 결과 `<이름>.txt` 와 이름이 같다 → **출력 폴더를 꼭 정한다** (비워 두면 E34 로 멈춘다 — 대본을 덮지 않게).
+
+### 6.3 사용
+
+`Transcript (optional)` 상자:
+
+| 항목 | 내용 |
+|------|------|
+| `Mode` | `Audio only` / **`Correct with transcript (MFA)`** |
+| `Language` | `English` / `Korean` / `Japanese` — 음성 · 대본의 언어 |
+| `MFA folder` | 비우면 `setup_mfa.bat` 이 고른 폴더. 아래 줄에 찾은 위치(또는 `not found`) |
+
+`Check Files` 는 파일마다 `transcript: <이름>.txt` / `none (audio only)` 를 보여 준다. `Convert` 는 대본 있는 파일을 **한 번에** MFA 로
+정렬한 뒤(이 PC: 2개 26초 — MFA 시작 비용이 대부분) 하나씩 추론 · 보정한다. 로그의 `(…, corrected, …)` / `(…, audio only, …)` 로 구분.
+
+### 6.4 보정 규칙 (안 B)
+
+열 0 ~ 1 (**Jaw · Lip 은 그대로**), 열 2 ~ 21 (비짐 20개) 만 바꾼다. 음소는 `saved_params/ipa_to_jali.json` 으로 비짐에 매핑한다
+(IPA — 세 언어 공용, 사전의 음소 영어 92 · 한국어 104 · 일본어 84 개를 전부 덮는다).
+
+| 구간 | 처리 |
+|------|------|
+| 음소 구간 | 그 음소의 비짐에 **최솟값 보장** — 기본 0.6, **입술(MBP · FV) 0.8**. 이미 더 크면 그대로 |
+| 같은 구간의 다른 비짐 | × 0.5 |
+| 무음 | 비짐 전부 × 0.2 |
+| 경계 | 앞뒤 3행(30 ms) 선형 램프 |
+| `spn`(사전 · G2P 모두 실패한 단어), `h` 같은 중립 음소, `ʋ`(영어 사전이 w · v 양쪽에 씀) | **VisemeNet 값 그대로** |
+| 일본어 `ɴ`(ん) | 뒤 자음을 따른다 (m 앞 → MBP), 끝이면 GK |
+
+`<이름>.phones.json` — `words` · `phones` 를 `[시작초, 끝초, 라벨]` 로. `.visemenet.json` 의 `correction` — 언어 · 대본 · MFA 버전 · 보정 음소 수 ·
+매핑에 없던 음소 · 보정값.
+
+### 6.5 코드
+
+| 코드 | 로그 | 할 일 |
+|------|------|------|
+| E30 | `MFA not found` | `setup_mfa.bat` 실행, 또는 `MFA folder` 지정 |
+| E31 | `MFA model missing for <언어>` | `setup_mfa.bat` 다시 실행 (빠진 모델만 받는다) |
+| E32 | `transcript is empty` / `not UTF-8` | 대본을 UTF-8 로 저장 (메모장: 다른 이름으로 저장 → 인코딩 UTF-8) |
+| E33 | `MFA align failed` / `did not finish` | MFA 자체가 실패 — 로그의 `detail` |
+| E34 | `output would overwrite the transcript` | §6.2 |
+| W10 | `alignment failed - audio only` | 그 파일만 오디오로. 대본이 음성과 맞는지 확인 |
+| W11 | `N word(s) not in the dictionary` | 그 단어 구간은 VisemeNet 값 그대로 |
+| W13 | `phones not in ipa_to_jali.json` | 그 음소 구간은 그대로. 표에 추가할 후보 |
+
+### 6.6 확인 기록 (2026-10-20, 영어 예시 2개 · angela 리그)
+
+- MFA 경계는 10 ms 격자 — 100fps 행과 그대로 맞물린다.
+- 사전에 없는 `VizimNet` → G2P 가 `vʲ ɪ z ɪ m n ɛ t` 로 만들어 정렬.
+- `visemenet_intro` 입술 음소 21개 — angela 의 `CNT_PHONEMES.MBP` · `FFF` 컨트롤이 **8 이상(0 ~ 10) 된 수: 오디오만 10 → 보정 21**
+  (평균 5.4 → 8.4). `coffee_xxxx` 의 `f` 는 0 → 8. 비교 장면: `out/m2/angela_JALI_<이름>_{audio,correct}.ma` (gitignore).
+- 대본 `visemenet_intro.txt` 의 `cures` 는 `c ʊ ə z` 로 정렬됐다 — 실제 발화가 *curves* 라면 v 가 빠진다(대본 확인 필요).
+- **눈으로 보는 확인(입술이 실제로 자연스럽게 닫히는가)은 아직** — 위 장면을 열어 재생해 볼 것. 보정값(0.6 · 0.8 · ×0.5)은 초안이다.

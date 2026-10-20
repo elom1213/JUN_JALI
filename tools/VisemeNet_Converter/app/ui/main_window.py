@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 # Python Script by Ji Hun Park
-# last Update date : 2026-10-19
+# last Update date : 2026-10-20
 # VisemeNet Converter - 메인 창 (docs/0030_tool_plan.md §4.2)
 #
-# wav 목록(공용 TSL) + 출력 폴더 + 옵션 + Check Files / Convert / Stop + 진행 막대 + 로그.
+# wav 목록(공용 TSL) + 출력 폴더 + 옵션 + 대본 보정(Correct 모드, MFA) + Check Files / Convert / Stop + 진행 막대 + 로그.
 # 변환은 QThread 워커에서 돈다(창이 멈추지 않게). TensorFlow 는 첫 Convert 때 워커 안에서 불러온다.
 # 규칙: 시작 전에 전부 검사하고 하나라도 실패하면 아무것도 변환하지 않는다. 변환 중 오류도 즉시 멈춘다.
 # 모든 UI 문자열 · 로그는 영어.
@@ -16,7 +16,7 @@ from Framework.core import file_opener
 
 from ..config.version import APP_NAME, VERSION, LAST_UPDATE
 from ..config.app_meta import icon_path
-from ..core import converter, settings
+from ..core import aligner, converter, settings
 from ..core.wav_check import check_wav, WavError, DEFAULT_MAX_SECONDS
 
 
@@ -25,6 +25,7 @@ REPO_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.p
 GUIDE_PATH = os.path.join(REPO_ROOT, "docs", "0050_converter_guide.md")
 
 MODES = [("Deterministic (recommended)", True), ("Original - random dropout", False)]
+ALIGN_MODES = [("Audio only", "audio"), ("Correct with transcript (MFA)", "correct")]
 
 
 class ConvertWorker(QThread):
@@ -34,8 +35,9 @@ class ConvertWorker(QThread):
     progress = Signal(int, int, str)        # done, total, name
     finished_batch = Signal(int, str)       # written count, stop reason ("" = 정상 종료)
 
-    def __init__(self, engine, wavs, out_dir, overwrite, max_seconds, write_json, parent=None):
+    def __init__(self, engine, wavs, out_dir, overwrite, max_seconds, write_json, align_cfg=None, parent=None):
         super().__init__(parent)
+        self.align_cfg = align_cfg
         self.engine = engine
         self.wavs = wavs
         self.out_dir = out_dir
@@ -50,7 +52,8 @@ class ConvertWorker(QThread):
     def run(self):
         try:
             jobs, problems = converter.preflight(
-                self.wavs, self.out_dir, self.overwrite, self.max_seconds, self.write_json)
+                self.wavs, self.out_dir, self.overwrite, self.max_seconds, self.write_json, self.align_cfg,
+                REPO_ROOT)
             if problems:
                 for wav, code, message in problems:
                     self.log.emit("ERROR", "{0}  {1} {2}".format(os.path.basename(wav) or "Output", code, message))
@@ -69,7 +72,7 @@ class ConvertWorker(QThread):
                 self.engine, jobs, self.write_json, "{0} {1}".format(APP_NAME, VERSION),
                 log=lambda level, msg: self.log.emit(level, msg),
                 progress=lambda done, total, name: self.progress.emit(done, total, name),
-                should_stop=lambda: self._stop)
+                should_stop=lambda: self._stop, align_cfg=self.align_cfg)
             if stopped:
                 self.finished_batch.emit(len(written), "Stopped: {0}. Files already written: {1}"
                                          .format(stopped, len(written)))
@@ -92,7 +95,7 @@ class MainWindow(QWidget):
         self.setWindowTitle("{0} v{1}".format(APP_NAME, VERSION))
         if icon_path(".png"):
             self.setWindowIcon(QIcon(icon_path(".ico") or icon_path(".png")))
-        self.resize(640, 760)
+        self.resize(640, 860)
         self.setAcceptDrops(True)
 
         self._prefs = settings.load()
@@ -186,6 +189,45 @@ class MainWindow(QWidget):
         out_layout.addLayout(opt2)
         layout.addWidget(out_box)
 
+        # --- 대본 보정 (docs/0060 안 B) - wav 옆의 <이름>.lab / .txt 를 MFA 로 정렬해 비짐을 보정
+        tr_box = QGroupBox("Transcript (optional)")
+        tr_layout = QVBoxLayout(tr_box)
+        row = QHBoxLayout()
+        row.addWidget(QLabel("Mode"))
+        self.cmb_align = QComboBox()
+        for label, _key in ALIGN_MODES:
+            self.cmb_align.addItem(label)
+        self.cmb_align.setToolTip(
+            "Correct: a transcript next to each WAV (<name>.lab, or <name>.txt, UTF-8) is aligned with\n"
+            "Montreal Forced Aligner and the viseme curves are corrected phone by phone\n"
+            "(lips close on p / b / m, f / v ...). Jaw and Lip stay as VisemeNet made them.\n"
+            "WAV files without a transcript are converted from the audio only.")
+        self.cmb_align.currentIndexChanged.connect(self._update_align_ui)
+        row.addWidget(self.cmb_align)
+        row.addSpacing(16)
+        row.addWidget(QLabel("Language"))
+        self.cmb_lang = QComboBox()
+        for lang in aligner.LANGUAGES:
+            self.cmb_lang.addItem(lang)
+        self.cmb_lang.setToolTip("Language of the speech and the transcript (MFA acoustic model + dictionary).")
+        row.addWidget(self.cmb_lang)
+        row.addStretch(1)
+        tr_layout.addLayout(row)
+        row = QHBoxLayout()
+        row.addWidget(QLabel("MFA folder"))
+        self.le_mfa = QLineEdit()
+        self.le_mfa.setPlaceholderText("Empty = the folder chosen in setup_mfa.bat")
+        self.le_mfa.editingFinished.connect(self._update_align_ui)
+        row.addWidget(self.le_mfa, 1)
+        btn_mfa = QPushButton("Browse...")
+        btn_mfa.clicked.connect(self.on_browse_mfa)
+        row.addWidget(btn_mfa)
+        tr_layout.addLayout(row)
+        self.lb_mfa = QLabel("")
+        tr_layout.addWidget(self.lb_mfa)
+        self._align_widgets = [self.cmb_lang, self.le_mfa, btn_mfa, self.lb_mfa]
+        layout.addWidget(tr_box)
+
         # --- 실행
         run_row = QHBoxLayout()
         self.btn_check = QPushButton("Check Files")
@@ -227,6 +269,11 @@ class MainWindow(QWidget):
         self.cb_overwrite.setChecked(bool(p.get("overwrite", False)))
         self.sb_max.setValue(int(p.get("max_seconds", DEFAULT_MAX_SECONDS)))
         self.cmb_mode.setCurrentIndex(0)
+        keys = [k for _l, k in ALIGN_MODES]
+        self.cmb_align.setCurrentIndex(keys.index(p.get("align_mode")) if p.get("align_mode") in keys else 0)
+        self.cmb_lang.setCurrentIndex(max(self.cmb_lang.findText(p.get("language", "English")), 0))
+        self.le_mfa.setText(p.get("mfa_folder", ""))
+        self._update_align_ui()
         self._log("INFO", "{0} v{1} ready. Add WAV files (44.1 kHz, 16-bit PCM).".format(APP_NAME, VERSION))
 
     def _save(self):
@@ -236,6 +283,9 @@ class MainWindow(QWidget):
             "write_json": self.cb_json.isChecked(),
             "overwrite": self.cb_overwrite.isChecked(),
             "max_seconds": self.sb_max.value(),
+            "align_mode": ALIGN_MODES[self.cmb_align.currentIndex()][1],
+            "language": self.cmb_lang.currentText(),
+            "mfa_folder": self.le_mfa.text().strip(),
         })
         settings.save(self._prefs)
 
@@ -310,6 +360,10 @@ class MainWindow(QWidget):
             self._log("INFO", "{0}  {1}".format(os.path.basename(items[0]), info.summary()))
         except WavError as e:
             self._log("WARN", "{0}  {1} {2}".format(os.path.basename(items[0]), e.code, e.message))
+        if self._correct_mode():
+            tr = aligner.transcript_path(items[0])
+            self._log("INFO", "{0}  transcript: {1}".format(
+                os.path.basename(items[0]), os.path.basename(tr) if tr else "none (audio only)"))
 
     # ------------------------------------------------------------------ 출력
 
@@ -329,6 +383,33 @@ class MainWindow(QWidget):
         except (OSError, ValueError):
             self._log("WARN", "Folder does not exist yet: {0}".format(folder or "(none)"))
 
+    # ------------------------------------------------------------------ 대본 보정
+
+    def _correct_mode(self):
+        return ALIGN_MODES[self.cmb_align.currentIndex()][1] == "correct"
+
+    def _align_cfg(self):
+        if not self._correct_mode():
+            return None
+        return converter.AlignConfig(self.cmb_lang.currentText(), self.le_mfa.text().strip())
+
+    def _update_align_ui(self, *args):
+        on = self._correct_mode()
+        for w in self._align_widgets:
+            w.setEnabled(on)
+        inst = aligner.find_install(REPO_ROOT, self.le_mfa.text().strip())
+        if inst is None:
+            self.lb_mfa.setText("MFA: not found - run setup_mfa.bat (once) or set the folder")
+        else:
+            self.lb_mfa.setText("MFA: {0}".format(inst.folder))
+
+    def on_browse_mfa(self, *args):
+        folder = QFileDialog.getExistingDirectory(self, "MFA Folder (chosen in setup_mfa.bat)",
+                                                  self.le_mfa.text() or REPO_ROOT)
+        if folder:
+            self.le_mfa.setText(os.path.normpath(folder))
+            self._update_align_ui()
+
     # ------------------------------------------------------------------ 실행
 
     def _inputs(self):
@@ -345,13 +426,18 @@ class MainWindow(QWidget):
         QApplication.setOverrideCursor(Qt.WaitCursor)
         try:
             jobs, problems = converter.preflight(wavs, self.le_out.text().strip(), self.cb_overwrite.isChecked(),
-                                                 self.sb_max.value(), self.cb_json.isChecked())
+                                                 self.sb_max.value(), self.cb_json.isChecked(),
+                                                 self._align_cfg(), REPO_ROOT)
         finally:
             QApplication.restoreOverrideCursor()
         for job in jobs:
             self._log("OK", "{0}  {1}".format(os.path.basename(job.wav_path), job.info.summary()))
             for code, message in job.info.warnings:
                 self._log("WARN", "{0}  {1} {2}".format(os.path.basename(job.wav_path), code, message))
+            if self._correct_mode():
+                self._log("INFO", "{0}  transcript: {1}".format(
+                    os.path.basename(job.wav_path),
+                    os.path.basename(job.transcript_path) if job.transcript_path else "none (audio only)"))
         for wav, code, message in problems:
             self._log("ERROR", "{0}  {1} {2}".format(os.path.basename(wav) or "Output", code, message))
         if problems:
@@ -370,7 +456,7 @@ class MainWindow(QWidget):
 
         self._worker = ConvertWorker(self._engine, wavs, self.le_out.text().strip(),
                                      self.cb_overwrite.isChecked(), self.sb_max.value(),
-                                     self.cb_json.isChecked(), parent=self)
+                                     self.cb_json.isChecked(), self._align_cfg(), parent=self)
         self._worker.log.connect(self._log)
         self._worker.progress.connect(self._on_progress)
         self._worker.finished_batch.connect(self._on_finished)
@@ -402,8 +488,10 @@ class MainWindow(QWidget):
 
     def _set_running(self, running):
         for w in (self.btn_check, self.btn_convert, self.tsl, self.le_out, self.cb_json,
-                  self.cb_overwrite, self.sb_max, self.cmb_mode):
+                  self.cb_overwrite, self.sb_max, self.cmb_mode, self.cmb_align):
             w.setEnabled(not running)
+        for w in self._align_widgets:
+            w.setEnabled(not running and self._correct_mode())
         self.btn_stop.setEnabled(running)
         if running:
             self.progress.setRange(0, 0)            # 모델 로드 중엔 바쁨 표시
@@ -422,6 +510,8 @@ class MainWindow(QWidget):
             "{0} v{1}\nUpdate date: {2}\n\n"
             "Converts 44.1 kHz / 16-bit WAV files to VisemeNet viseme curves\n"
             "(<name>.txt, 100 fps x 22 columns: Jaw, Lip + 20 visemes).\n\n"
+            "Correct mode: a transcript next to each WAV is aligned with Montreal\n"
+            "Forced Aligner and the visemes are corrected phone by phone.\n\n"
             "Every file is checked first - if one fails, nothing is converted.\n"
             "An error while converting stops the batch; the reason is in the Log.\n\n"
             "Model: VisemeNet (Zhou et al. 2018), fork JUN_JALI.\n"

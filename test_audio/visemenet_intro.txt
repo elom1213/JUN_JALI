@@ -1,0 +1,1 @@
+We present VizimNet, a novel deep learning-based approach that is able to produce animator-centric speech-motion cures and automatically derive modern production face rigs directly from input audio alone.
