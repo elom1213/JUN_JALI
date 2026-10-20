@@ -11,6 +11,7 @@
 | [docs/0040_jali_arkit_mapping.md](docs/0040_jali_arkit_mapping.md) | JALI 음소 ↔ ARKit 52 블렌드셰이프 매칭 (리그 실측 기반) |
 | [docs/0050_converter_guide.md](docs/0050_converter_guide.md) | **설치 · 변환기 사용법** — `setup_env.bat` · `Run_VisemeNet_Converter.bat`, 오류 코드, 원본 모델의 무작위성 · 끝 0.32초 |
 | [docs/0060_transcript_mfa_plan.md](docs/0060_transcript_mfa_plan.md) | 개선 계획 — 대본 + Montreal Forced Aligner 로 비짐 보정 · 하이브리드 생성 (영 · 한 · 일) |
+| [docs/0070_advancedskeleton_lipsync_research.md](docs/0070_advancedskeleton_lipsync_research.md) | 조사 — AdvancedSkeleton 의 Audio2Face (NVIDIA → ARKit 52 리타깃) · Auto lipsync (MFA 1.1) 동작 과정과 0060 계획에 주는 의미 |
 
 **빠른 시작**: ① `setup_env.bat` 더블클릭(한 번 — PC 에 Python 3.12 ~ 3.14 만 있으면 이 폴더 전용 Python 3.11 을 받아 쓴다) → ② `Run_VisemeNet_Converter.bat` 더블클릭 → wav 넣고 `Convert`
 → ③ 마야에서 `Maya_Python/JUN_All/tools/A00540_JaliLipSync/__dragDrop_A00540.py` 를 드롭해 셸프 툴로 리그에 키.

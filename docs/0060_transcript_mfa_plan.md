@@ -2,6 +2,7 @@
 
 > **작성** 2026-10-20 · 아직 **실험 전** 계획이다. 실측이 끝나면 각 절에 결과를 덧붙인다.
 > 선행 문서: [0010 진단](0010_visemenet_feasibility.md) · [0030 툴 계획](0030_tool_plan.md) · [0040 ARKit 매칭](0040_jali_arkit_mapping.md) · [0050 변환기 사용법](0050_converter_guide.md)
+> 관련 조사: [0070 AdvancedSkeleton 립싱크](0070_advancedskeleton_lipsync_research.md) — 같은 MFA 방식의 선행 사례 · Audio2Face 대안
 
 **목표**: 음성(wav)만이 아니라 **같은 발화의 대본**(영어 · 한국어 · 일본어 텍스트)을 함께 넣어,
 VisemeNet 단독보다 **정확한 입 모양**(특히 다국어)과 **풍부한 표정**을 만든다.
