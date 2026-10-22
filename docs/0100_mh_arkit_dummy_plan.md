@@ -1,6 +1,6 @@
 # 메타휴먼 페이셜 ↔ ARKit 52 ↔ JALI 더미 노드 에셋 — 제작 계획서
 
-> **작성** 2026-10-22 · 상태: **계획 (사용자 확인 대기, §9)** · 대상 Maya 2024 (mayapy 로 생성 · 검증)
+> **작성** 2026-10-22 · 상태: **ARKit 경로 구현 · 검증 완료 (2026-10-22, §12)** — JALI 더미(§4 · §5.5)는 사용자 요청으로 **보류**, 별도 턴 · 대상 Maya 2024 (mayapy 로 생성 · 검증)
 > 원본: `C:\Users\USER\Desktop\JP\0035_maya_src_rig\07_MH_sample_02\0010_sample_0030.mb` 의 `|rig|head_grp|headRig_grp`
 > 결과물(안): 같은 폴더 `0010_sample_0040.mb` (0030 을 열어 더미 노드 · 매핑 노드망 · 머티리얼을 더해 다른 이름으로 저장)
 > 참고: `C:\Program Files\Epic Games\UE_5.7\Engine\Plugins\MetaHuman\MetaHumanCharacter\Content\Face\ARKit\{PA,AS}_MetaHuman_ARKit_Mapping.uasset`,
@@ -10,6 +10,20 @@
 ---
 
 ## 0. 요청 정리
+
+### 0-A. 확정표 (2026-10-22 사용자 답변)
+
+| # | 답 | 반영 |
+|---|----|------|
+| Q1 | 권장대로 — SDK 앞에 `plusMinusAverage` 삽입 | §5.2 D2a, T4 |
+| Q2 | 권장대로 — `GRP_dmy_*` 시각 오프셋 그룹 | §5.2 D2b, T5 |
+| Q3 | 제안값 채택 — `mouthClose` → `mouthLipsTogetherUL/UR/DL/DR` | 표 A · B, T2 |
+| Q4 | Epic 그대로 (교차 항목 평균) | 표 B |
+| Q5 | 넣지 않음 (`CNT_COARTIC`) | — |
+| Q6 | 뺀다 (`dmy_out_jali`) | — |
+| Q7 | 권장대로 — 시안 (0, 0.8, 1), 주황도 시안으로 | §6, T7 |
+| Q8 | 권장대로 — `0010_sample_0040.mb`, 스크립트는 `JUN_JALI/examples/` | §7 |
+| 추가 | **JALI 마야 파일 작업은 나중에 따로 요청** → 이번 작업은 ARKit 관련만 (`dmy_in` · `dmy_out` · 노드망 · 머티리얼). `dmy_in_jali` · `dmy_in_jali_arkit` 은 만들지 않았다 | §4 · §5.5 보류 |
 
 | # | 요청 (원문 요지) | 이 계획 |
 |---|------------------|---------|
@@ -153,7 +167,7 @@ mouthShrugUpper mouthPressL/R mouthLowerDownL/R mouthUpperUpL/R` · `browDownL/R
 | `tongueOut` | `tongueDown` 0.826 ← `CTRL_C_tongue_move.ty` −0.826<br>`tongueOut` 0.769 ← `CTRL_C_tongue_inOut.ty` −0.769<br>`tongueWide` 0.628 ← `CTRL_C_tongue_wideNarrow.ty` +0.628<br>(`tongueRollDown` 0.247 — 이 리그에 없음) |
 
 **쓰이는 컨트롤러 68개** (`mouthClose` 제안 4개 포함, 빼면 64개) — 눈 8(`eye`·`eye_blink`·`eye_squintInner`·`eye_cheekRaise` L/R), 눈썹 8, 코 2, 턱 6(`C_jaw`·`C_jaw_fwdBack`·`jaw_ChinRaiseU/D` L/R),
-입 41, 혀 3. 컨트롤러 축으로는 **72개**(`CTRL_C_jaw` · `CTRL_C_mouth` · `CTRL_L/R_eye` 는 2축). 나머지 106개 컨트롤러는 건드리지 않는다.
+입 41, 혀 3. 컨트롤러 축으로는 **71개**(`CTRL_C_jaw` · `CTRL_L/R_eye` 는 2축, `CTRL_C_mouth` 는 `tx` 만). 나머지 106개 컨트롤러는 건드리지 않는다.
 
 가중치를 그대로 쓰면 **한 ARKit 값이 1 일 때 Epic 의 포즈와 같은 메타휴먼 포즈**가 된다 (= UE 에서 ARKit 캡처를 재생한 모습). 두 ARKit 값이 같은 컨트롤러에 들어오면
 합산되고(`mouthFunnel` 1 + `mouthPucker` 1 → `funnelU` 1.752 → SDK 끝값 1 로 멈춤) 이것도 UE 의 PoseAsset 가산 동작과 같다.
@@ -177,7 +191,7 @@ mouthShrugUpper mouthPressL/R mouthLowerDownL/R mouthUpperUpL/R` · `browDownL/R
 | `jawForward` | `X.jawFwd` | |
 | `jawLeft` · `jawRight` · `jawOpen` | `X.jawLeft` · `X.jawRight` · `X.jawOpen` | |
 | `mouthClose` (제안) | avg(`X.mouthLipsTogetherUL UR DL DR`) | Q3 에서 빼면 0 |
-| `mouthFunnel` | avg(`X.mouthFunnelUL UR DL DR`) | |
+| `mouthFunnel` | avg(`X.mouthFunnelUL UR DL DR`) | `dmy_in.mouthPucker` 1 이 funnel 4채널을 0.752 로 켜므로 이때 `mouthFunnel` 출력 0.752 (교차) |
 | `mouthPucker` | avg(`X.mouthLipsPurseUL UR DL DR`) | 보조 채널(funnel 0.752 · towards 0.412)은 안 읽는다 — `mouthFunnel` 과 섞이지 않게 |
 | `mouthLeft` · `mouthRight` | `X.mouthLeft` · `X.mouthRight` | |
 | `mouthSmileLeft` · `…Right` | `X.mouthCornerPullL` · `X.mouthCornerPullR` | |
@@ -196,7 +210,7 @@ mouthShrugUpper mouthPressL/R mouthLowerDownL/R mouthUpperUpL/R` · `browDownL/R
 | `cheekPuff` | avg(`X.mouthCheekBlowL`, `R`, `X.mouthLipsBlowL`, `R`) | |
 | `cheekSquintLeft` · `…Right` | `X.eyeCheekRaiseL` · `X.eyeCheekRaiseR` | |
 | `noseSneerLeft` · `…Right` | `X.noseWrinkleL` · `X.noseWrinkleR` | |
-| `tongueOut` | `X.tongueOut` | Epic 포즈의 `tongueDown` · `tongueWide` 는 안 읽는다 |
+| `tongueOut` | clamp(`X.tongueOut` × 1/0.769, 0, 1) | Epic 포즈가 `tongueOut` 을 0.769 까지만 켜므로 왕복이 1 이 되게 나눈다(`bw_out_tongueOut` 가중치 1.3004 + `cl_out_tongueOut`). `tongueDown` · `tongueWide` 는 안 읽는다 |
 
 - 왕복 성질: `dmy_in.<k>` = 1 (다른 입력 0) → 표 A 로 컨트롤러 → `CTRL_expressions` → 표 B → `dmy_out.<k>` = **1** 이 52개 전부에서 성립하도록 B 를 골랐다(교차 항목은 다른 출력에 0.25~0.5 가 더 나올 뿐). 검증 T3.
 - ARKit 에 없는 메타휴먼 채널(`mouthStickyU/D*`, `neck*`, `teeth*`, `eyelashes*`, `eyelid*`, `mouthCorner*`, `jawClench` 등 약 190개)은 출력에 반영되지 않는다 — ARKit 52 의 표현 범위 밖.
@@ -283,12 +297,12 @@ CTRL_L_mouth_funnelU.translateY ────────────────
 | D2c | 범위 | 합이 1 을 넘거나 −1 아래로 가도 SDK 곡선이 끝값을 유지하므로 clamp 를 두지 않는다. `GRP_dmy` 의 이동은 제한하지 않는다(틀 밖으로 조금 나갈 수 있음) | 눈 2D 패드는 ±40°/−30° 곡선이 같은 식으로 끝값을 유지 |
 | D2d | 눈 | `CTRL_L/R_eye.tx/ty` 에 D2a·b 를 적용(`eyeLookIn/Out` 부호는 표 A). `lookAtSwitch` 가 1 이면 UE 처럼 GUI 눈이 무시된다 — 문서에 적고 기본값 0 유지 | `LOC_*_eyeDriver.rotate` 에 직접 넣는 대안은 에임 모드와 충돌 |
 
-노드 수: 컨트롤러 축 72 × (`bw` 1 + `pma` 1) = 144 + `GRP_dmy` 68 = **212** (`mouthClose` 제안 제외 시 200).
+노드 수: 컨트롤러 축 71 × (`bw` 1 + `pma` 1) = 142 + `GRP_dmy` 68 = **210** (`mouthClose` 제안 제외 시 198).
 
 ### 5.3 D3 — `dmy_out` 은 `CTRL_expressions` 에서 읽는다
 
 - `CTRL_expressions` 는 headRig_grp 안의 컨트롤러(메시, 노란색)이자 **모든 GUI 컨트롤러 값이 0~1 로 정규화되어 모이는 곳**이다. 여기서 읽으면 ① 부호 · 2D 축 처리가 필요 없고 ② 손 조작과 `dmy_in` 입력이 합쳐진 최종값이 나오며 ③ 눈 에임 모드 결과까지 포함된다.
-- 1:1 (34개): `CTRL_expressions.X` → `dmy_out.Y` 직결. 평균 (18개): `bw_out_<arkit>`(blendWeighted, weight 1/n) → `dmy_out.Y`. 값은 0~1 안이라 clamp 없음. 노드 **18**.
+- 1:1 (38개): `CTRL_expressions.X` → `dmy_out.Y` 직결. 평균 (14개): `bw_out_<arkit>`(blendWeighted, weight 1/n) → `dmy_out.Y`. 값은 0~1 안이라 clamp 없음 — 예외 `tongueOut` 만 1/0.769 배 + `cl_out_tongueOut`. 노드 **15**.
 - 대안(GUI 컨트롤러 `ty` 에서 직접 읽기)은 양방향 축 분리 · 눈 각도 역변환이 더 필요해 기각.
 
 ### 5.4 D4 — 원본은 복사본에서 고친다
@@ -311,7 +325,7 @@ dmy_in_jali_arkit.mouthFunnel ─→ bw_dmy_CTRL_L_mouth_funnelU_y.input[k]  (dm
 
 - 접두사 `dmy_` / `bw_dmy_` / `pma_dmy_` / `GRP_dmy_` / `bw_out_` / `jali_` — 원본의 `blendWeighted1~4` · `MDV_*` · `SUB_*` · `multiplyDivide_head*` 와 겹치지 않는다.
 - DG 노드는 이름으로만 구분(그룹 불가), 더미 트랜스폼 4~5개는 `|rig|DMY_grp` 아래. `DMY_grp` 는 `head_grp` 옆(`rig` 바로 아래)에 둔다 — headRig_grp 안에 넣으면 `CTRL_faceGUI` 의 팔로우 컨스트레인트를 따라 움직여 혼동.
-- 합계 노드: 212 + 18 + 67 = **297** (+ `dmy_out_jali` 60). 재생 부하는 RigLogic 에 비해 무시할 수준.
+- 합계 노드: 210 + 15 = **225** (이번 범위). JALI 경로(67) · `dmy_out_jali`(60) 는 보류. 재생 부하는 RigLogic 에 비해 무시할 수준.
 
 ---
 
@@ -351,7 +365,7 @@ dmy_in_jali_arkit.mouthFunnel ─→ bw_dmy_CTRL_L_mouth_funnelU_y.input[k]  (dm
 | T5 | 시각 경로 | `dmy_in.jawOpen = 1` → `CTRL_C_jaw` 월드 y 가 `GRP_dmy_CTRL_C_jaw.ty` 만큼 이동, `tx` 축도 동일 |
 | T6 | JALI | `dmy_in_jali` 기본(Jaw Lip 9) + `MBP = 10` → `dmy_in_jali_arkit.mouthClose ≈ 0.62`, `X.mouthLipsTogetherUL ≈ 0.62`; `weight = 0` 이면 전부 0 |
 | T7 | 머티리얼 | 시안 SG 멤버 = 표 A 컨트롤러 쉐입 68개와 정확히 일치, 나머지 쉐입의 SG 는 0030 과 동일 |
-| T8 | 원본 불변 | 0030 의 파일 해시가 전과 같다 |
+| T8 | 원본 불변 · 리그 보존 | 0030 의 파일 해시가 전과 같다(셸에서 sha256). 0040 의 `embeddedNodeRL4` 2 · joint 1212 · mesh 520 · unknown 101 이 0030 과 같다 |
 
 사용자 GUI 확인: 0040 을 열어 시안 컨트롤러 분포가 맞는지, `dmy_in.jawOpen` 을 채널박스에서 올리면 턱 컨트롤러가 올라가며 입이 벌어지는지, 그 상태에서 컨트롤러를 손으로 더 밀 수 있는지.
 
@@ -393,3 +407,20 @@ dmy_in_jali_arkit.mouthFunnel ─→ bw_dmy_CTRL_L_mouth_funnelU_y.input[k]  (dm
 - `mouthClose` 제안은 실측이 아니라 ARKit 정의에 따른 선택이다. 눈으로 확인 후 `lipsTogether` 대신 `mouthLipsPress` 등으로 바꿀 수 있다(노드 입력만 교체).
 - `lookAtSwitch = 1` 이면 `dmy_in.eyeLook*` 는 표정에 영향이 없다(UE 와 같은 동작). 캡처 데이터를 그대로 재생할 때는 0 으로.
 - `dmy_out` 은 `CTRL_expressions` 를 읽으므로 **외부에서 `CTRL_expressions` 를 직접 키 잡아도** 출력이 따라온다 — 의도된 동작이지만 "컨트롤러를 거쳐야만 나온다" 로 오해하지 말 것.
+
+---
+
+## 12. 구현 · 검증 결과 (2026-10-22, 이 PC · mayapy 2024)
+
+- 결과 파일 **`07_MH_sample_02/0010_sample_0040.mb`** (28.2 MB). 원본 `0010_sample_0030.mb` 는 sha256 `4485a629…e8bf` 그대로.
+- 스크립트: `examples/build_mh_arkit_dummy.py`(상수표 `ARKIT_52` · `ARKIT_TO_CTRL` · `OUT_FROM_EXPR` 은 §1.3 실측에서 자동 생성한 값) · `examples/check_mh_arkit_dummy.py`.
+- 만든 것: `|rig|DMY_grp|dmy_in` · `dmy_out`(ARKit 52), `bw_dmy_*` 71 · `pma_dmy_*` 71 · `GRP_dmy_*` 68 · `bw_out_*` 14 · `cl_out_tongueOut` 1, `GUI2D_mapped_shader`(시안) 멤버 68.
+  셰이더 멤버: 노랑 160 → 96, 주황 19 → 15, 시안 68 (합 179 유지).
+- `check_mh_arkit_dummy.py` → **`RESULT OK`** (T1 · T2 · T3 · T4 · T5 · T7 · T8, T6 은 JALI 보류로 없음).
+  - T2 는 **파일 기본 상태 대비 변화량**으로 비교한다 — 0030 은 `CTRL_L/R_nose_wrinkleUpper.ty = 1` 이 저장돼 있어 `noseWrinkleUpperL/R` 이 쉬는 상태에서 1.0 이다
+    (Epic 의 FBX 에서도 전 프레임 1.0 인 상수 채널 — 메타휴먼 기본값으로 보인다). 노드망과 무관.
+  - T3 교차값(설계대로): `mouthPucker → mouthFunnel 0.752`, `mouthRollLower → mouthRollUpper 0.499`, `browInnerUp → browOuterUpL/R 0.5`, `browOuterUpL/R → browInnerUp 0.25`. 그 외 52개 왕복 전부 1.0.
+  - T4: 손 0.4 + 입력 0.4 → 0.8, 손 0.5 + 입력 1 → 1.0(끝값), 매핑된 71개 축 모두 연결되지 않은 상태(손 조작 자유).
+  - T5: `dmy_in.jawOpen` 1 → `GRP_dmy_CTRL_C_jaw.ty` 1, 컨트롤러 월드 이동 확인(GUI 스케일 때문에 −2.0 cm).
+- **미확인 (사용자 GUI)**: 0040 을 열어 시안 컨트롤러 68개의 분포, `dmy_in.*` 를 채널박스에서 올릴 때 컨트롤러 메시가 틀 안에서 움직이는 모양(합이 1 을 넘으면 틀 밖으로 조금 나간다 — D2c), 실제 얼굴 변형.
+- 보류: §4 JALI 더미(`dmy_in_jali` · 노드망 D5) · §4.2 `dmy_out_jali` — 별도 요청 시 `build()` 에 `--jali` 단계로 추가.
