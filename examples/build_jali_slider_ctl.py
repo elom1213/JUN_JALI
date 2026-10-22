@@ -6,7 +6,8 @@
 # 만드는 것
 #   JALI_SLIDER_RIG                      루트 (옮기기 · 크기용, global_scale 어트리뷰트)
 #     JALI_CTL_GRP
-#       JALI_box_grp / CNT_JaLi          2D 박스 (tx = Jaw, ty = Lip, 0~1)  + jaw/lip_output_min/max
+#       JALI_box_grp / CNT_JaLi          2D 박스 (tx = Jaw, ty = Lip, 0~1, 휴식 0) + jaw/lip_output_min/max
+#                                        기본 9 = DUMMY_IN_JALI.Jaw/Lip 의 기본값 0.6 이 민다 (데이터 키가 그 자리를 덮는다)
 #       PH_<attr>_grp ×16                PHONEMES 슬라이더 (CTL_PH_<attr>.ty 0~1) + output_min/max
 #       CO_<attr>_grp ×6                 COARTIC  슬라이더 (CTL_CO_<attr>.ty 0~1) + output_min/max
 #     JALI_DUMMY_GRP
@@ -214,7 +215,7 @@ def build_jali_box(parent, dummy_in, dummy_out):
             pass
 
     cmds.transformLimits(ctl, tx=(0, 1), ty=(0, 1), etx=(True, True), ety=(True, True))
-    cmds.setAttr(ctl + '.t', JALI_DEFAULT, JALI_DEFAULT, 0)
+    cmds.setAttr(ctl + '.t', 0, 0, 0)        # 휴식 위치 0 — 기본 0.6(=9) 은 DUMMY_IN_JALI 의 기본값이 민다 (0090 C7)
     _lock(ctl, [c for c in LOCK_CHANNELS if c not in ('tx', 'ty')])
     _lock(drv, [c for c in LOCK_CHANNELS if c not in ('tx', 'ty')])
     for ch in ('tx', 'ty'):
@@ -232,13 +233,15 @@ def build_jali_box(parent, dummy_in, dummy_out):
 # ---------------------------------------------------------------------------
 # 더미 노드
 # ---------------------------------------------------------------------------
-def _dummy(name, attrs, parent, limited):
+def _dummy(name, attrs, parent, limited, defaults=None):
+    """defaults = {attr: 기본값} (없으면 0)."""
+    defaults = defaults or {}
     node = cmds.group(em=True, n=name, p=parent)
     for a in attrs:
         if limited:
-            cmds.addAttr(node, ln=a, at='double', min=0.0, max=1.0, k=True)
+            cmds.addAttr(node, ln=a, at='double', min=0.0, max=1.0, dv=defaults.get(a, 0.0), k=True)
         else:
-            cmds.addAttr(node, ln=a, at='double', k=True)
+            cmds.addAttr(node, ln=a, at='double', dv=defaults.get(a, 0.0), k=True)
     _lock(node, LOCK_CHANNELS)
     return node
 
@@ -256,7 +259,8 @@ def build():
     _lock(dummy_grp, LOCK_CHANNELS[:-1])
 
     co_attrs = [a for a, _, _ in COARTIC]
-    din_jali = _dummy('DUMMY_IN_JALI', ['Jaw', 'Lip'], dummy_grp, True)
+    din_jali = _dummy('DUMMY_IN_JALI', ['Jaw', 'Lip'], dummy_grp, True,
+                      defaults={'Jaw': JALI_DEFAULT, 'Lip': JALI_DEFAULT})
     din_ph = _dummy('DUMMY_IN_PHONEMES', PHONEMES, dummy_grp, True)
     din_co = _dummy('DUMMY_IN_COARTIC', co_attrs, dummy_grp, True)
     dout_jali = _dummy('DUMMY_OUT_JALI', ['Jaw', 'Lip'], dummy_grp, False)
@@ -400,11 +404,18 @@ def verify(path):
     cmds.setAttr(ROOT + '.' + GLOBAL_SCALE, 1.0)
     cmds.setAttr('CTL_PH_AAA.ty', 0); cmds.setAttr('CTL_CO_YA_PEDAL.ty', 0)
 
-    # JaLi 박스
+    # JaLi 박스 — 컨트롤러 휴식 0, DUMMY_IN_JALI 기본 0.6 → 출력 9
     ok(abs(cmds.getAttr('DUMMY_OUT_JALI.Jaw') - 9) < 1e-6 and abs(cmds.getAttr('DUMMY_OUT_JALI.Lip') - 9) < 1e-6, 'JaLi default 9, 9')
-    cmds.setAttr('DUMMY_IN_JALI.Lip', 0.4)
-    ok(abs(cmds.getAttr('DUMMY_OUT_JALI.Lip') - 15) < 1e-6, 'JaLi Lip 0.6+0.4 -> 15')
-    cmds.setAttr('DUMMY_IN_JALI.Lip', 0)
+    ok(cmds.getAttr('CNT_JaLi.tx') == 0 and cmds.getAttr('CNT_JaLi.ty') == 0, 'JaLi controller rests at 0, 0')
+    ok(abs(cmds.getAttr('DUMMY_IN_JALI.Jaw') - JALI_DEFAULT) < 1e-6, 'DUMMY_IN_JALI.Jaw default 0.6')
+    cmds.setAttr('CNT_JaLi.ty', 0.4)
+    ok(abs(cmds.getAttr('DUMMY_OUT_JALI.Lip') - 15) < 1e-6, 'JaLi Lip dummy 0.6 + ctl 0.4 -> 15')
+    cmds.setAttr('CNT_JaLi.ty', 0)
+    cmds.setAttr('DUMMY_IN_JALI.Jaw', 0)
+    ok(abs(cmds.getAttr('DUMMY_OUT_JALI.Jaw')) < 1e-6, 'JaLi Jaw dummy 0 -> 0')
+    cmds.setAttr('DUMMY_IN_JALI.Jaw', 1.0)
+    ok(abs(cmds.getAttr('DUMMY_OUT_JALI.Jaw') - 15) < 1e-6, 'JaLi Jaw dummy 1 -> 15 (nothing added)')
+    cmds.setAttr('DUMMY_IN_JALI.Jaw', JALI_DEFAULT)
     ok(cmds.transformLimits('CNT_JaLi', q=True, tx=True) == [0.0, 1.0], 'JaLi tx limits')
 
     print('verify: %d checks, %d failed' % (checks[0], len(fails)))

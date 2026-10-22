@@ -18,7 +18,8 @@
 | Q4 | COARTIC 라벨 | **ref 식 `LNTDm GKm MMMm FFFm WAp YAp` + 묶음 머리글 `PHONEMES` · `COARTIC` · `JALI`** |
 | Q5 | `global_scale` | **만든다** — `JALI_SLIDER_RIG.global_scale`(기본 1, min 0, 키 가능). 비짐 22개 출력에만 곱하고 **Jaw / Lip 은 곱하지 않는다**(축 배율은 비짐 세기가 아니라 비중이라 뜻이 달라진다) |
 | Q6 | 파일 · 스크립트 위치 | `02_Cage_JALI/A0020_jali_slider_ctl.ma` · `JUN_JALI/examples/build_jali_slider_ctl.py` |
-| Q7 | 기본 `output_max` | angela 범위 (12 · YA_PEDAL 15 · Jaw/Lip 15) |
+| Q7 | 기본 `output_max` | angela 범위 (12 · YA_PEDAL 15 · Jaw/Lip 15). 10 등으로 내리는 것은 마야에서 사용자가 직접(2026-10-22) |
+| C7 | JaLi 기본값 자리 (2026-10-22, A00540 v01.01 계획) | **`CNT_JaLi` 휴식 위치 0, `DUMMY_IN_JALI.Jaw/Lip` 기본값 0.6** → 출력 기본 9 그대로, 데이터 키가 기본값을 덮으므로 더해지지 않는다. 검증 305 항목 |
 
 ## 0-B. 실측 결과 (2026-10-22, mayapy 2024)
 
@@ -250,7 +251,7 @@ CTL_PH_AAA.translateY ──→ pma_AAA.input1D[1]  ┴→ pma_AAA.output1D ─�
 | S3 ✅ | 더미 노드 3쌍 · `pma_* / rv_* / gs_*` 노드망 · JaLi 박스(0~1, 보이는 크기 ×2) | 〃 |
 | S4 ✅ | mayapy 로 생성 → `A0020_jali_slider_ctl.ma` 저장 → T1~T6 자동 검증 **301 항목 통과** | `.ma` (320KB, 커브 217개) + `.ref/A0020_layout_preview.png` |
 | S5 | **사용자 GUI 확인** — 모양 · 바 두께(`lineWidth` 3) · 라벨 크기 · 색(PH 노랑 17 · CO 하늘 18 · JaLi 빨강 13) · 드래그 느낌 → 수정 | 대기 |
-| S6 (후속) | `A00540` 매핑 json 추가(`DUMMY_IN_*`, scale 1) · `scene.RIG_MARKER`(`CNT_PHONEMES` 고정) 를 설정 가능하게 | 별도 턴 |
+| S6 ✅ | `A00540` v01.01 (2026-10-22): 매핑 json 역할표 `nodes` · 새 규칙 `jali_slider_dummy_in`(scale 1) · Target Auto/Manual · JaLi scale — Maya_Python `docs/plans/A00540_JaliLipSync_v0101_rules_manual_plan.md` | 완료 (마야 GUI 미확인) |
 
 ---
 
