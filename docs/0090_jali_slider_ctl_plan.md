@@ -1,9 +1,33 @@
 # JALI 슬라이더 컨트롤러 리그 — 제작 계획서
 
-> **작성** 2026-10-22 · 상태: **계획 (사용자 확인 대기, §8)** · 대상 Maya 2024 (mayapy 로 생성 · 검증)
-> 결과물(안): `C:\Users\USER\Desktop\JP\0035_maya_src_rig\02_Cage_JALI\A0020_jali_slider_ctl.ma`
+> **작성** 2026-10-22 · 상태: **S4 완료 — 파일 생성 · 자동 검증 301 항목 통과 (2026-10-22), S5 사용자 GUI 확인 대기** · 대상 Maya 2024 (mayapy 로 생성 · 검증)
+> 결과물: `C:\Users\USER\Desktop\JP\0035_maya_src_rig\02_Cage_JALI\A0020_jali_slider_ctl.ma` (배치 미리보기 `.ref/A0020_layout_preview.png`)
+> 생성 · 검증 스크립트: `examples/build_jali_slider_ctl.py` (`mayapy build_jali_slider_ctl.py <out.ma>` / `--verify <out.ma>`)
 > 참고: 같은 폴더 `.ref/ref_01.png`(모양) · `0001_PJ_portfolio/0040_JULI/scenes/angela_JALI.ma`(어트리뷰트) ·
 > 같은 폴더 `A0010_jali_arkit_mapping_ctl.ma`(지금 쓰는 JaLi 2D 박스 + JALI_IN → ARKIT_OUT 노드망, `examples/build_jali_arkit_node.py` 가 만든 것)
+
+---
+
+## 0-A. 확정 사항 (2026-10-22 사용자 답)
+
+| # | 질문 | 확정 |
+|---|------|------|
+| Q1 | 더미 노드 | **3쌍** `DUMMY_IN/OUT_JALI` · `_PHONEMES` · `_COARTIC` |
+| Q2 | 더미 입력 방식 · 단위 | **부모 `_drv` 그룹을 민다 · 0~1** (권장안) |
+| Q3 | `Project` `Enunciate` `dummy` | **뺀다** → 슬라이더 22개 |
+| Q4 | COARTIC 라벨 | **ref 식 `LNTDm GKm MMMm FFFm WAp YAp` + 묶음 머리글 `PHONEMES` · `COARTIC` · `JALI`** |
+| Q5 | `global_scale` | **만든다** — `JALI_SLIDER_RIG.global_scale`(기본 1, min 0, 키 가능). 비짐 22개 출력에만 곱하고 **Jaw / Lip 은 곱하지 않는다**(축 배율은 비짐 세기가 아니라 비중이라 뜻이 달라진다) |
+| Q6 | 파일 · 스크립트 위치 | `02_Cage_JALI/A0020_jali_slider_ctl.ma` · `JUN_JALI/examples/build_jali_slider_ctl.py` |
+| Q7 | 기본 `output_max` | angela 범위 (12 · YA_PEDAL 15 · Jaw/Lip 15) |
+
+## 0-B. 실측 결과 (2026-10-22, mayapy 2024)
+
+| 항목 | 결과 | 설계에 준 영향 |
+|------|------|----------------|
+| V1 `textCurves` | **된다** (`f="Arial"`, 28.1pt 로 대체 경고만) | 라벨 · 머리글을 스크립트가 만든다 |
+| V2 `remapValue` 입력 클램프 | **된다** — 입력 1.3 → `outputMax`, −0.2 → `outputMin`. `setRange` 도 같다 | `clamp` 노드 불필요 |
+| V3 부모 ty 연결 + 자식 ty | 자식 `ty` settable, 월드 y = 합 | D3 그대로 |
+| T1~T6 (§7) | **301 항목 0 실패** — 저장한 `.ma` 를 다시 열어 검사 | — |
 
 ---
 
@@ -125,7 +149,7 @@ JALI_SLIDER_RIG                              ← 루트 (옮기기 · 크기 조
 | 루트 트랜스폼 `JALI_SLIDER_RIG` | 얼굴 리그 패널 옆에 통째로 옮기고 크기를 맞추는 용도. 별도 "마스터 컨트롤러" 는 없어도 된다 | 포함 (그룹만) |
 | `Project` `Enunciate` 슬라이더 | angela 에 어트리뷰트는 있지만 **연결이 없어서 지금은 아무 일도 안 한다** | 제외 (Q3) |
 | 혀 · 눈썹 등 (`CNT_tongue` `CNT_UPFACE` …) | 립싱크 밖 | 제외 (범위 밖) |
-| 전체 배율 하나 (`global_scale`) | "출력 전체를 한 번에 줄이기" — `output_max` 를 22개 따로 바꾸는 수고를 던다 | **선택** — 넣는다면 `JALI_SLIDER_RIG` 에 어트리뷰트 하나, `rv_*` 뒤에 `multDoubleLinear` 하나씩 (Q5) |
+| 전체 배율 하나 (`global_scale`) | "출력 전체를 한 번에 줄이기" — `output_max` 를 22개 따로 바꾸는 수고를 던다 | **포함 (Q5 확정)** — `JALI_SLIDER_RIG.global_scale`, `rv_*` 뒤에 `gs_*`(`multDoubleLinear`) 하나씩. Jaw / Lip 제외 |
 
 ---
 
@@ -149,7 +173,7 @@ rv_AAA.outValue       ──→ DUMMY_OUT_PHONEMES.AAA
 
 - 요청의 의미(`[0,1] → [min,max]`)와 어트리뷰트 이름(`outputMin/outputMax`)이 그대로 맞는다. 램프를 두면 나중에 슬라이더별 이징도 넣을 수 있다.
 - 대안 `setRange`(`oldMin/oldMax/min/max`) — 같은 일, 램프 없음. 둘 다 입력을 범위로 **클램프**하는지 §7 V2 에서 실측.
-- 슬라이더당 노드: `pma_<attr>`(§6.4) 1 + `rv_<attr>` 1 = 2개 × 22 + JaLi 2축 4개 = **48 DG 노드**.
+- 슬라이더당 노드: `pma_<tag>`(§6.4) 1 + `rv_<tag>` 1 + `gs_<tag>`(global_scale) 1 = 3개 × 22 + JaLi 2축 4개(gs 없음) = **70 DG 노드**. tag = `PH_AAA` · `CO_LNTD` · `JALI_Jaw`.
 
 ### 6.3 더미 출력 노드
 
@@ -220,19 +244,20 @@ CTL_PH_AAA.translateY ──→ pma_AAA.input1D[1]  ┴→ pma_AAA.output1D ─�
 
 | 단계 | 할 일 | 결과물 |
 |------|-------|--------|
-| S0 | §8 답 확인 → §0-A 확정표 | 이 문서 갱신 |
-| S1 | 실측 V1 · V2 (mayapy 스크립트 2개) | 결과를 §7 에 기록, 설계 수정 여부 |
-| S2 | `build_jali_slider_ctl.py` — 어트리뷰트 표 · 슬라이더 1개 생성 함수 · 배치 | 스크립트 |
-| S3 | 더미 노드 3쌍 · `pma_* / rv_*` 노드망 · JaLi 박스 이식(0~1) | 스크립트 |
-| S4 | mayapy 로 생성 → `A0020_jali_slider_ctl.ma` 저장 → T1~T5 자동 검증 | `.ma` + 검증 로그 |
-| S5 | 사용자 GUI 확인(모양 · 드래그 V3) → 수정 | 완료 |
+| S0 ✅ | §8 답 확인 → §0-A 확정표 | 이 문서 갱신 |
+| S1 ✅ | 실측 V1 · V2 · V3 (mayapy) | §0-B |
+| S2 ✅ | `build_jali_slider_ctl.py` — 어트리뷰트 표 · 슬라이더 1개 생성 함수 · 배치 | `examples/build_jali_slider_ctl.py` |
+| S3 ✅ | 더미 노드 3쌍 · `pma_* / rv_* / gs_*` 노드망 · JaLi 박스(0~1, 보이는 크기 ×2) | 〃 |
+| S4 ✅ | mayapy 로 생성 → `A0020_jali_slider_ctl.ma` 저장 → T1~T6 자동 검증 **301 항목 통과** | `.ma` (320KB, 커브 217개) + `.ref/A0020_layout_preview.png` |
+| S5 | **사용자 GUI 확인** — 모양 · 바 두께(`lineWidth` 3) · 라벨 크기 · 색(PH 노랑 17 · CO 하늘 18 · JaLi 빨강 13) · 드래그 느낌 → 수정 | 대기 |
 | S6 (후속) | `A00540` 매핑 json 추가(`DUMMY_IN_*`, scale 1) · `scene.RIG_MARKER`(`CNT_PHONEMES` 고정) 를 설정 가능하게 | 별도 턴 |
 
 ---
 
 ## 10. 알려진 위험
 
-- `textCurves` 가 headless 에서 실패할 수 있다(V1). 실패하면 라벨만 GUI 에서 붙인다 — 자동 검증 T1~T5 에는 영향 없음.
-- `remapValue` 의 램프 평가 — 입력이 범위를 넘을 때 끝값을 유지하는지 확인 전까지는 가정하지 않는다(V2).
+- ~~`textCurves` 가 headless 에서 실패할 수 있다(V1)~~ → 실측 통과(§0-B).
+- ~~`remapValue` 의 램프 평가(V2)~~ → 실측 통과, 범위 밖은 끝값(§0-B).
+- 뷰포트 드래그 느낌 · 글자 커브의 선택 통과(Reference) 는 **GUI 에서만 확인된다** (S5).
 - `A00540_JaliLipSync` · `A00550_PoseMapper` 는 `CNT_PHONEMES` 를 리그 표식으로 찾는다. 새 파일에는 그 이름이 없으므로 **지금은 두 툴이 새 파일을 리그로 인식하지 않는다** (S6 후속).
 - ref 이미지의 비짐 묶음(24)과 angela(22)가 다르다 — 이 계획은 angela 를 따른다. ref 의 `IH JY DT UH` 등은 대응 어트리뷰트가 없다.
