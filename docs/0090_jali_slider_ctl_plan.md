@@ -2,7 +2,9 @@
 
 > **작성** 2026-10-22 · 상태: **S4 완료 — 파일 생성 · 자동 검증 301 항목 통과 (2026-10-22), S5 사용자 GUI 확인 대기** · 대상 Maya 2024 (mayapy 로 생성 · 검증)
 > 결과물: `C:\Users\USER\Desktop\JP\0035_maya_src_rig\02_Cage_JALI\A0020_jali_slider_ctl.ma` (배치 미리보기 `.ref/A0020_layout_preview.png`)
-> 생성 · 검증 스크립트: `examples/build_jali_slider_ctl.py` (`mayapy build_jali_slider_ctl.py <out.ma>` / `--verify <out.ma>`)
+> · **direct 버전** `A0020_jali_slider_ctl_direct.ma` (2026-10-22, §0-A C8 — 키가 컨트롤러 ty 에 직접 붙는 버전)
+> 생성 · 검증 스크립트: `examples/build_jali_slider_ctl.py` (`mayapy build_jali_slider_ctl.py [--direct] <out.ma>` / `--verify [--direct] <out.ma>`,
+> direct 파일 베이크 = `bake_ctl_keys()`)
 > 참고: 같은 폴더 `.ref/ref_01.png`(모양) · `0001_PJ_portfolio/0040_JULI/scenes/angela_JALI.ma`(어트리뷰트) ·
 > 같은 폴더 `A0010_jali_arkit_mapping_ctl.ma`(지금 쓰는 JaLi 2D 박스 + JALI_IN → ARKIT_OUT 노드망, `examples/build_jali_arkit_node.py` 가 만든 것)
 
@@ -20,6 +22,7 @@
 | Q6 | 파일 · 스크립트 위치 | `02_Cage_JALI/A0020_jali_slider_ctl.ma` · `JUN_JALI/examples/build_jali_slider_ctl.py` |
 | Q7 | 기본 `output_max` | angela 범위 (12 · YA_PEDAL 15 · Jaw/Lip 15). 10 등으로 내리는 것은 마야에서 사용자가 직접(2026-10-22) |
 | C7 | JaLi 기본값 자리 (2026-10-22, A00540 v01.01 계획) | **`CNT_JaLi` 휴식 위치 0, `DUMMY_IN_JALI.Jaw/Lip` 기본값 0.6** → 출력 기본 9 그대로, 데이터 키가 기본값을 덮으므로 더해지지 않는다. 검증 305 항목 |
+| C8 | **direct 버전** (2026-10-22 요청) — "drv 가 키를 받는 버전이 아니라 컨트롤러 ty 에 키가 직접 붙는 버전" | `A0020_jali_slider_ctl_direct.ma` 를 **같은 스크립트 `--direct`** 로 추가 생성. §6.4 D3 의 **대안(`CTL.ty` 직결)** 을 채택: `_drv` · `pma_*` 없음, `DUMMY_IN.X → CTL_<tag>.ty → rv → gs → DUMMY_OUT` (JaLi 는 `DUMMY_IN_JALI.Jaw/Lip → CNT_JaLi.tx/ty`). 컨트롤러 ty 는 연결 상태라 손으로는 못 만지고, **`bake_ctl_keys()`**(DUMMY_IN 의 animCurve 를 통째로 복사, 없으면 `bakeResults`) 또는 Maya *Bake Simulation* 으로 베이크하면 **키가 컨트롤러에 그대로 남고** DUMMY_OUT 은 컨트롤러를 따라간다. 검증 `--verify --direct` **473 항목 통과**(T7 베이크 포함). 원본 A0020 은 그대로(305 통과 재확인) |
 
 ## 0-B. 실측 결과 (2026-10-22, mayapy 2024)
 
