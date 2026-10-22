@@ -1,6 +1,6 @@
 # JALI 음소 ↔ 메타휴먼 페이셜 더미 노드 — 매칭표 · 제작 계획서
 
-> **작성** 2026-10-22 · 상태: **계획 (사용자 확인 대기, §9)** · 대상 Maya 2024 (mayapy 로 생성 · 검증)
+> **작성** 2026-10-22 · 상태: **구현 · 검증 완료 (2026-10-22, §12)** — 더미 이름 · 단위는 §0-A 확정(A00540 json 규칙) · 대상 Maya 2024 (mayapy 로 생성 · 검증)
 > 원본: `C:\Users\USER\Desktop\JP\0035_maya_src_rig\07_MH_sample_02\0010_sample_0040.mb` — [0100 계획](0100_mh_arkit_dummy_plan.md)으로 만든 ARKit 더미 에셋(`dmy_in` · `dmy_out` · `bw_dmy_*` · `pma_dmy_*` · `GRP_dmy_*`)
 > 결과물(안): 같은 폴더 `0010_sample_0050.mb` (0040 을 열어 JALI 더미 · 노드망을 더해 다른 이름으로 저장)
 > 참고: [0040 JALI ↔ ARKit 매칭](0040_jali_arkit_mapping.md)(angela 실측 가중치) · [0100 더미 출력 어트리뷰트 안내](0100_jali_dummy_out_attrs_guide.md)(angela 음소별 턱 · 입술 · **혀** 실측, 동시조음 뜻) ·
@@ -9,6 +9,21 @@
 ---
 
 ## 0. 요청 정리
+
+### 0-A. 확정표 (2026-10-22 사용자 답변)
+
+| # | 답 | 반영 |
+|---|----|------|
+| Q1 | 더미 3개 — 이름은 `A00540_JaliLipSync` 의 `app/mappings/jali_slider_dummy_in.json` 규칙: **`DUMMY_IN_PHONEMES` · `DUMMY_IN_COARTIC` · `DUMMY_IN_JALI`** | §5.1 D1a, T1 |
+| Q2 | 단위도 그 json 규칙 — **전부 0~1** (angela 단위 안 씀). 비짐 1.0 = VisemeNet txt 최댓값 = angela 10(실측 조건), `Jaw` `Lip` 0~1 기본 **0.6** (= angela 9, json `fixed_default`) | §5.1 D1b, §5.2 · §5.3 식, T1 · T3 |
+| Q3 | 권장대로 — §3 혀 · 입술 직접 매핑 제안값 채택 | §5.3, T2 · T5 |
+| Q4 | `FFF` 합산 (`lipBiteD` 0.50 직접 + `lipsRollD` 0.24 경유) | §3, T2 |
+| Q5 | `COARTIC.MMM` 계수 0.80 | §3 · §5.3, T5 |
+| Q6 | 새 컨트롤러 4개도 같은 시안 | §6, T8 |
+| Q7 | 권장대로 — A0020 은 넣지 않고 `connect_a0020()` 만 | §5.5 D5b, T9 |
+| Q8 | 권장대로 — `0010_sample_0050.mb`, 스크립트 `JUN_JALI/examples/` | §7 |
+
+**이 확정의 효과**: 세 더미가 json 의 `nodes` 이름 · 0~1 단위와 같으므로 **A00540 이 `jali_slider_dummy_in.json` 그대로 메타휴먼 파일(0050)에 키를 넣을 수 있다** — 매핑 json 추가(옛 S6) 불필요. 아래 §2 · §3 의 가중치는 "음소 10 · Jaw/Lip 9" 기준으로 썼는데, 더미 단위로는 **음소 1.0 · Jaw/Lip 0.6** 이 같은 조건이다(값은 동일). A0020 의 `DUMMY_OUT_*`(angela 단위) 를 이을 때는 × 1/10 (비짐 · 동시조음) · × 1/15 (Jaw Lip) 로 바꾼다(D5b).
 
 | # | 요청 (원문 요지) | 이 계획 |
 |---|------------------|---------|
@@ -161,48 +176,48 @@ angela 의 혀 · 입술 실측(§1.2)을 메타휴먼의 해당 채널에 **뜻
 
 | 노드 | 어트리뷰트 | 범위 · 기본 | A0020 에서 오는 연결 |
 |------|-----------|-------------|---------------------|
-| `dmy_in_jali` | `Jaw` `Lip` + **`weight`** | 0~15, 기본 9 · 9 / `weight` 0~1 기본 1 | `DUMMY_OUT_JALI.Jaw → dmy_in_jali.Jaw` … |
-| `dmy_in_phonemes` | `AAA Eh AHH OHH UUU IEE RRR WWW SSS FFF TTH MBP SSH Schwa GK LNTD` | 0~12 | `DUMMY_OUT_PHONEMES.X → dmy_in_phonemes.X` (16, 이름 매칭) |
-| `dmy_in_coartic` | `LNTD GK MMM FFF WA_PEDAL YA_PEDAL` | 0~12 (`YA_PEDAL` 15) | `DUMMY_OUT_COARTIC.X → dmy_in_coartic.X` (6) |
+| `DUMMY_IN_JALI` | `Jaw` `Lip` + **`weight`** | 0~1, 기본 **0.6 · 0.6** / `weight` 0~1 기본 1 | `DUMMY_OUT_JALI.Jaw × 1/15 → DUMMY_IN_JALI.Jaw` … (json: `Jaw` `Lip` 열) |
+| `DUMMY_IN_PHONEMES` | `AAA Eh AHH OHH UUU IEE RRR WWW SSS FFF TTH MBP SSH Schwa GK LNTD` | 0~1 (1.0 = angela 10) | `DUMMY_OUT_PHONEMES.X × 1/10 → DUMMY_IN_PHONEMES.X` (16, 이름 매칭) |
+| `DUMMY_IN_COARTIC` | `LNTD GK MMM FFF WA_PEDAL YA_PEDAL` | 0~1 | `DUMMY_OUT_COARTIC.X × 1/10 → DUMMY_IN_COARTIC.X` (6; json 은 `YA_PEDAL` 을 안 쓴다) |
 | `dmy_in_jali_arkit` | ARKit 52 | 연결됨, 채널박스 숨김 | 경유 경로의 중간 결과 (디버그) |
 | `dmy_in_jali_mh` | §3 의 직접 채널 (아래 D3 목록) | 연결됨, 숨김 | 직접 경로의 중간 결과 |
 
 | ID | 결정 | 권장 | 이유 · 대안 |
 |----|------|------|------------|
-| D1a | 노드 수 | **3개** (`_jali` · `_phonemes` · `_coartic`) | `LNTD GK FFF` 가 두 노드에 있어 하나로는 이름을 못 지킨다. A0020 `DUMMY_OUT_*` 3개와 1:1 이라 **이름 매칭 한 번으로 연결**(§7 `connect_a0020()`). 대안 = 노드 하나 + `CO_LNTD` 식 접두사(0100 R5 의 "이름만 간직" 에 어긋남) |
-| D1b | 단위 | **angela 단위** (0~12 · 15, 10 = 온전한 발음) | A0020 출력 · A00540 · 0040 §3 가중치가 전부 이 단위. 대안 = 0~1 (A0020 `DUMMY_IN` 과 같음) — 리맵 노드 22개가 더 들고 A00540 json 의 `scale` 을 바꿔야 한다 |
-| D1c | `weight` | `dmy_in_jali.weight` 하나 — Jaw · Lip 축 배율 노드에 곱한다(아래) | 모든 채널이 Jaw 또는 Lip 배율을 거치므로 노드 2개로 전체를 끈다 |
+| D1a | 노드 수 · 이름 | **3개**, 이름은 A00540 json 의 `nodes` 그대로 (`DUMMY_IN_PHONEMES` · `DUMMY_IN_COARTIC` · `DUMMY_IN_JALI`) — **확정 Q1** | `LNTD GK FFF` 가 두 노드에 있어 하나로는 이름을 못 지킨다. A00540 이 json 수정 없이 이 파일에 키를 넣고, A0020 `DUMMY_OUT_*` 3개와도 1:1 (`connect_a0020()`) |
+| D1b | 단위 | **0~1** (json 규칙: `viseme_scale` 1, `clamp` [0,1], `jali.range` [0,1], `fixed_default` [0.6, 0.6]) — **확정 Q2** | 비짐 1.0 = angela 10, Jaw/Lip 0.6 = angela 9 로 두면 0040 §3 가중치를 **나누지 않고 그대로** 쓴다(`phoneme_unit` 1.0, `jali_unit` 0.6). angela 단위안은 기각 |
+| D1c | `weight` | `DUMMY_IN_JALI.weight` 하나 — Jaw · Lip 축 배율 노드에 곱한다(`jali_md_weightJaw/Lip`) | 모든 채널이 Jaw 또는 Lip 배율을 거치므로 노드 2개로 전체를 끈다. json 은 이 어트리뷰트를 건드리지 않는다 |
 
 ### 5.2 D2 — 경유 경로: `build_jali_arkit_node` 노드망 재사용 → 0040 의 `bw_dmy_*` 에 합류
 
 ```
-dmy_in_phonemes.*  ─┐
-dmy_in_coartic.WA/YA_PEDAL ─┤→ jali_bw_<target> (음소 × 0040 가중치/10) → jali_md_<target> (× Jaw/9 또는 Lip/9 × weight) → jali_cl_<target> (0~1) → dmy_in_jali_arkit.<52>
-dmy_in_jali.Jaw/Lip ────────┘                                                     ↓
+DUMMY_IN_PHONEMES.*  ─┐
+DUMMY_IN_COARTIC.WA/YA_PEDAL ─┤→ jali_bw_<target> (음소 × 0040 가중치) → jali_md_<target> (× Jaw/0.6 또는 Lip/0.6 × weight) → jali_cl_<target> (0~1) → dmy_in_jali_arkit.<52>
+DUMMY_IN_JALI.Jaw/Lip ────────┘                                                     ↓
 dmy_in_jali_arkit.mouthFunnel ──→ bw_dmy_CTRL_L_mouth_funnelU_y.input[k]  (dmy_in.mouthFunnel 과 같은 가중치 1 — 0100 §5.5)
 ```
 
-- `build_jali_arkit_node.build()` 를 **인자화**한다: `build(prefix='', in_node=None, out_node=None, jaw_plug=None, lip_plug=None)` — 기존 호출(`build()`)은 그대로 동작, 이 계획은 `in_node` 자리에
-  `dmy_in_phonemes`(음소) · `dmy_in_coartic`(`WA/YA_PEDAL`) · `dmy_in_jali`(Jaw Lip) 를 나눠 주므로 **입력 노드를 어트리뷰트별로 지정하는 `src_plugs` 사전** 인자가 맞다 (S2).
-- `jali_md_scaleJaw/Lip` = `Jaw/9 × weight` (multDoubleLinear 2개 직렬).
+- `build_jali_arkit_node.build()` 를 **인자화**했다 (S2): `build(prefix='', src_plugs=None, out_node=None, jali_unit=9, phoneme_unit=10, weight_plug=None)` — 기존 호출(`build()`)은 그대로 동작,
+  이 계획은 `src_plugs` 로 `DUMMY_IN_PHONEMES`(음소) · `DUMMY_IN_COARTIC`(`WA/YA_PEDAL`) · `DUMMY_IN_JALI`(Jaw Lip) 를 어트리뷰트별로 주고 `jali_unit=0.6`, `phoneme_unit=1.0` 을 쓴다.
+- `jali_md_scaleJaw/Lip` = `Jaw/0.6`, `jali_md_weightJaw/Lip` = × `weight` (multDoubleLinear 2개 직렬).
 - 0040 의 71개 `bw_dmy_*` 중 JALI 가 쓰는 ARKit 타겟 15개(§2)가 닿는 축에 `dmy_in_jali_arkit.<target>` 입력을 **`dmy_in.<target>` 과 같은 가중치**로 추가. 노드 추가 없음.
-- 노드: `jali_bw` 15 · `jali_md` 15 + 2(+1 weight) · `jali_cl` 15 = **48**.
+- 노드: `jali_bw` 15 · `jali_md` 15 + 2 scale + 2 weight · `jali_cl` 15 = **49**.
 
 ### 5.3 D3 — 직접 경로: `dmy_in_jali_mh` → 새 축 4개 + 기존 축 입력 추가
 
-`dmy_in_jali_mh` 어트리뷰트 (0~1, 각각 §3 의 한 행 묶음) 과 만드는 식:
+`dmy_in_jali_mh` 어트리뷰트 (0~1, 각각 §3 의 한 행 묶음) 과 만드는 식 (입력은 0~1 더미값, w = `DUMMY_IN_JALI.weight`):
 
 | 어트리뷰트 | 식 (`jali_bw_mh_*` → `jali_md_mh_*` → `jali_cl_mh_*`) | 간다 |
 |-----------|---------------------------------------------------------|------|
-| `tongueTipUp` | (LNTD 0.61 · RRR 0.63 · UUU 0.2 · SSH 0.2 + CO.LNTD 1.0) /10 × Jaw/9 × w | `bw_dmy_CTRL_C_tongue_tipMove_y` **+** |
-| `tongueTipDown` | (GK 0.44 · SSS 0.2 · AAA 0.2 · Eh 0.14 · IEE 0.2 + CO.GK 1.0) /10 × Jaw/9 × w | 〃 **−** |
-| `tongueBendUp` | (GK 0.40 · UUU 0.2 · OHH 0.3 · WWW 0.2 + CO.GK 0.46) /10 × Jaw/9 × w | `bw_dmy_CTRL_C_tongue_bendTwist_y` + |
-| `tongueUp` | (LNTD 0.30 + CO.LNTD 0.35) /10 × Jaw/9 × w | 기존 `bw_dmy_CTRL_C_tongue_move_y` + (입력 추가) |
-| `tongueOutExtra` | (RRR 0.15) /10 × Jaw/9 × w | 기존 `bw_dmy_CTRL_C_tongue_inOut_y` − |
-| `lowerLipBite` | (FFF 0.50) /10 × Lip/9 × w | `bw_dmy_CTRL_L/R_mouth_lipBiteD_y` + (새 축 2) |
-| `lipsTogetherCo` | (CO.MMM 0.80) /10 × Lip/9 × w × **`CTRL_expressions.jawOpen`** | 기존 `bw_dmy_CTRL_L/R_mouth_lipsTogetherU/D_y` + (4) |
-| `lowerLipBiteCo` | (CO.FFF 0.60) /10 × Lip/9 × w × `jawOpen` | `bw_dmy_CTRL_L/R_mouth_lipBiteD_y` + |
-| `chinRaiseCo` | (CO.FFF 0.50) /10 × Lip/9 × w × `jawOpen` | 기존 `bw_dmy_CTRL_L/R_jaw_ChinRaiseD_y` + |
+| `tongueTipUp` | (LNTD 0.61 · RRR 0.63 · UUU 0.2 · SSH 0.2 + CO.LNTD 1.0) × Jaw/0.6 × w | `bw_dmy_CTRL_C_tongue_tipMove_y` **+** |
+| `tongueTipDown` | (GK 0.44 · SSS 0.2 · AAA 0.2 · Eh 0.14 · IEE 0.2 + CO.GK 1.0) × Jaw/0.6 × w | 〃 **−** |
+| `tongueBendUp` | (GK 0.40 · UUU 0.2 · OHH 0.3 · WWW 0.2 + CO.GK 0.46) × Jaw/0.6 × w | `bw_dmy_CTRL_C_tongue_bendTwist_y` + |
+| `tongueUp` | (LNTD 0.30 + CO.LNTD 0.35) × Jaw/0.6 × w | 기존 `bw_dmy_CTRL_C_tongue_move_y` + (입력 추가) |
+| `tongueOutExtra` | (RRR 0.15) × Jaw/0.6 × w | 기존 `bw_dmy_CTRL_C_tongue_inOut_y` − |
+| `lowerLipBite` | (FFF 0.50) × Lip/0.6 × w | `bw_dmy_CTRL_L/R_mouth_lipBiteD_y` + (새 축 2) |
+| `lipsTogetherCo` | (CO.MMM 0.80) × Lip/0.6 × w × **`CTRL_expressions.jawOpen`** | 기존 `bw_dmy_CTRL_L/R_mouth_lipsTogetherU/D_y` + (4) |
+| `lowerLipBiteCo` | (CO.FFF 0.60) × Lip/0.6 × w × `jawOpen` | `bw_dmy_CTRL_L/R_mouth_lipBiteD_y` + |
+| `chinRaiseCo` | (CO.FFF 0.50) × Lip/0.6 × w × `jawOpen` | 기존 `bw_dmy_CTRL_L/R_jaw_ChinRaiseD_y` + |
 
 - `× jawOpen` 은 `multDoubleLinear` 하나를 더 끼운다 (`jali_md_jaw_<attr>`, `input2 ← CTRL_expressions.jawOpen`). `jawOpen` 은 `CTRL_C_jaw` 쪽 체인이고 입술 · 턱끝 컨트롤러는 다른 체인이라 **DG 순환이 없다** (S1 에서 `cycleCheck` 로 확인).
 - 새 축 4개(`tongue_tipMove.ty` · `tongue_bendTwist.ty` · `mouth_lipBiteD` L/R `.ty`)는 `build_mh_arkit_dummy.build_input_path()` 와 **같은 함수**로 만든다 — 그 함수를 "축별 입력 목록" 을 인자로 받게 일반화(S1). 양방향 축 `tipMove.ty` 는 `tongueTipUp` +1 · `tongueTipDown` −1 두 입력.
@@ -218,10 +233,10 @@ dmy_in_jali_arkit.mouthFunnel ──→ bw_dmy_CTRL_L_mouth_funnelU_y.input[k]  
 | ID | 결정 | 권장 | 이유 |
 |----|------|------|------|
 | D5a | 파일 | 0040 을 열어 **`0010_sample_0050.mb`** 로 저장 (0100 D4 와 같은 복사본 규칙) | 0040 은 ARKit 전용으로 남고, 0050 = ARKit + JALI |
-| D5b | A0020 연결 | 스크립트 `connect_a0020(namespace)` 함수만 제공 — 0050 에 A0020 을 **넣지 않는다** | 0090 D6 과 같은 "파일 하나 = 역할 하나". 사용자가 0050 을 열고 A0020 을 레퍼런스한 뒤 한 번 호출하면 `DUMMY_OUT_* → dmy_in_*` 24개가 이름으로 이어진다 |
+| D5b | A0020 연결 | 스크립트 `connect_a0020(namespace)` 함수만 제공 — 0050 에 A0020 을 **넣지 않는다** | 0090 D6 과 같은 "파일 하나 = 역할 하나". 사용자가 0050 을 열고 A0020 을 레퍼런스한 뒤 한 번 호출하면 `DUMMY_OUT_* → (× 1/10, Jaw Lip × 1/15) → DUMMY_IN_*` 24개가 이름으로 이어진다 (angela 단위 → 0~1) |
 | D5c | 색 | 새로 쓰이는 4개 컨트롤러도 **같은 시안** `GUI2D_mapped_shader` | "시안 = 외부 입력이 민다" 한 가지 뜻 유지. 대안 = 자홍 (1, 0, 0.8) 으로 "JALI 전용" 구분 — Q6 |
 
-- 합계 노드 48 + 42 = **90** (0050 전체 225 + 90 = 315).
+- 합계 노드 49 + 42 = **91** (0050 전체 225 + 91 = 316).
 
 ---
 
@@ -239,8 +254,8 @@ dmy_in_jali_arkit.mouthFunnel ──→ bw_dmy_CTRL_L_mouth_funnelU_y.input[k]  
 | `07_MH_sample_02/0010_sample_0050.mb` | 결과 에셋 (0040 + JALI 더미 3 + 중간 노드 2 + 노드망 90 + 머티리얼 4) |
 | `JUN_JALI/examples/build_mh_jali_dummy.py` | 생성 스크립트. `mayapy build_mh_jali_dummy.py <0040.mb> <0050.mb> [--no-direct] [--no-visual]`. Maya 안에서 `build()`. `connect_a0020(ns='')` 포함 |
 | 〃 상수 | `JALI_VIA_ARKIT`(= `build_jali_arkit_node.MAPPING` import), `JALI_DIRECT = {attr: {src: weight}}`(§3 · §5.3 표), `DIRECT_TO_CTRL = {attr: [(ctrl, axis, sign)]}`, `JAW_FACTOR_ATTRS` |
-| `JUN_JALI/examples/build_jali_arkit_node.py` | `build()` 인자화(`prefix`, `src_plugs`, `out_node`) — 기존 동작 유지 |
-| `JUN_JALI/examples/build_mh_arkit_dummy.py` | `build_input_path()` 를 "축별 입력 목록 + 소스 노드" 인자로 일반화, `_ctrl_path` 등 재사용 |
+| `JUN_JALI/examples/build_jali_arkit_node.py` | `build(prefix, src_plugs, out_node, jali_unit, phoneme_unit, weight_plug)` 인자화 — 기존 `build()` 동작 유지(회귀 확인: 노드 15 · 17 · 15, `MBP` 10 → `mouthClose` 0.62) |
+| `JUN_JALI/examples/build_mh_arkit_dummy.py` | `ensure_axis()` · `add_inputs()` · `build_input_path(src_node, per_axis)` 로 일반화, `assign_material()` 은 있는 셰이더를 재사용 — 0040 재생성 후 0100 검증 `RESULT OK` 확인 |
 | `JUN_JALI/examples/check_mh_jali_dummy.py` | 검증 §8 |
 | `docs/0110_jali_mh_dummy_plan.md` | 이 문서. 완료 후 §0-A · §12 |
 
@@ -252,15 +267,15 @@ dmy_in_jali_arkit.mouthFunnel ──→ bw_dmy_CTRL_L_mouth_funnelU_y.input[k]  
 
 | # | 검사 | 기준 |
 |---|------|------|
-| T1 | 더미 어트리뷰트 집합 | `dmy_in_phonemes` = `build_jali_slider_ctl.PHONEMES` 16, `dmy_in_coartic` = `COARTIC` 6, `dmy_in_jali` = `Jaw Lip weight` — A0020 스크립트 상수를 import 해 비교 |
-| T2 | 음소 → 컨트롤러 (경유) | 음소마다 10 (Jaw Lip 9, 나머지 0) → `CTRL_expressions` 변화량이 §2 합성값과 0.01 이내 (18개) — `dmy_in` 은 0 |
-| T3 | 축 배율 | `Jaw` 4.5 → `jawOpen` 절반, 입술 그대로; `Lip` 4.5 → 입술 절반, 턱 그대로; `weight` 0 → 전부 0 |
-| T4 | 직접 경로 | `LNTD` 10 → `tongueTipUp` 0.61 · `tongueUp` 0.30; `GK` 10 → `tongueBendUp` 0.40 · `tongueTipDown` 0.44; `FFF` 10 → `mouthLowerLipBiteL/R` 0.50 (+ `lipsRollD` 0.24 경유) |
-| T5 | 동시조음 턱 비례 | `COARTIC.MMM` 10 단독 → `lipsTogether*` 0; `AAA` 10 + `MMM` 10 → `lipsTogether*` ≈ 0.80 × 0.67 = 0.54; `COARTIC.LNTD` 10 → `tongueTipUp` 1.0 |
-| T6 | ARKit 출력 연동 | `MBP` 10 → `dmy_out.mouthClose` 0.62 · `dmy_out.jawOpen` 0.43 |
-| T7 | 손 조작 · 시각 · 0040 회귀 | 0100 의 T2~T5 를 0050 에서 다시 실행(`check_mh_arkit_dummy.py` 재사용) — JALI 입력이 0 이면 결과 동일 |
-| T8 | 머티리얼 · 리그 보존 | 시안 72 · 노랑 92 · 주황 15, `embeddedNodeRL4` 2 · joint 1212 · mesh 520 · unknown 101, `cycleCheck -all` 0 |
-| T9 | A0020 연결 | 새 씬에 0050 + A0020(ns `JALI`) 레퍼런스 → `connect_a0020('JALI')` → 24 연결, `JALI:CTL_PH_MBP.ty = 0.83`(=10/12) → `lipsTogether*` 0.62 |
+| T1 | 더미 이름 · 어트리뷰트 | `DUMMY_IN_PHONEMES` = `build_jali_slider_ctl.PHONEMES` 16(순서 포함), `DUMMY_IN_COARTIC` = `COARTIC` 6, `DUMMY_IN_JALI` = `Jaw Lip weight`, 범위 0~1, Jaw/Lip 기본 0.6 |
+| T2 | 입력 → 컨트롤러 (경유 + 직접) | 입력 하나 = 1.0 (Jaw Lip 0.6, 나머지 0) 22개 + 조합 3개 → `CTRL_expressions` 252개 변화량이 **예측식(§2 경유 + §3 직접)** 과 0.01 이내 — `dmy_in` 은 0 |
+| T3 | 축 배율 | `Jaw` 0.3 → `jawOpen` 절반, 입술 그대로; `Lip` 0.3 → 입술 절반, 턱 그대로; `weight` 0 → 전부 0 |
+| T4 | 직접 경로 (T2 에 포함, 대표값은 INFO 로 출력) | `LNTD` 1 → `tongueTipUp` 0.61 · `tongueUp` 0.30; `GK` 1 → `tongueBendUp` 0.40 · `tongueTipDown` 0.44; `FFF` 1 → `mouthLowerLipBiteL/R` 0.50 (+ `lipsRollD` 0.24 경유) |
+| T5 | 동시조음 턱 비례 | `COARTIC.MMM` 1 단독 → `lipsTogether*` 0; `AAA` 1 + `MMM` 1 → `lipsTogether*` = 0.80 × 0.67 = 0.536; `COARTIC.LNTD` 1 → `tongueTipUp` 1.0 |
+| T6 | ARKit 출력 연동 | `MBP` 1 → `dmy_out.mouthClose` 0.62 · `dmy_out.jawOpen` 0.43 |
+| T7 | 손 조작 · 시각 · 0040 회귀 | `dmy_in.jawOpen` · `mouthFunnel` 1 → 1.0 그대로; 매핑된 축(71 + 4) 모두 연결되지 않음; 손 0.3 + `LNTD` 1 → `tongueTipUp` 0.91; `GRP_dmy_CTRL_C_tongue_tipMove` 아래에 컨트롤러 |
+| T8 | 머티리얼 · 리그 보존 · 순환 | 시안 72 · 노랑 92 · 주황 15, `embeddedNodeRL4` 2 · joint 1212 · mesh 520 · unknown 101, `cycleCheck -all` 없음 |
+| T9 | A0020 연결 | 0050 에 A0020(ns `JALI`) 레퍼런스 → `connect_a0020('JALI')` → 24 연결, `JALI:CTL_PH_MBP.ty = 10/12`(출력 10 → × 1/10 = 1.0) → `lipsTogether*` 0.62, `DUMMY_OUT_JALI.Jaw` 9 → `DUMMY_IN_JALI.Jaw` 0.6 |
 
 사용자 GUI 확인: 0050 을 열어 `dmy_in_phonemes.LNTD` · `GK` · `RRR` 를 올렸을 때 혀 모양이 angela(0100 안내 §2.1)와 같은 뜻으로 움직이는지(§3 부호 해석), `FFF` 에서 아랫입술이 윗니 밑으로 들어가는지, `AAA` + `COARTIC.MMM` 에서 입술만 닫히는지.
 
@@ -291,7 +306,7 @@ dmy_in_jali_arkit.mouthFunnel ──→ bw_dmy_CTRL_L_mouth_funnelU_y.input[k]  
 | S3 | `build_mh_jali_dummy.py` — 더미 3 · 경유(D2) · 직접(D3) · 머티리얼 · `connect_a0020()` | 스크립트 |
 | S4 | mayapy 로 0040 → 0050, `check_mh_jali_dummy.py` T1~T9 | `0010_sample_0050.mb` + 검증 로그 |
 | S5 | 사용자 GUI 확인(§8 끝) → §3 가중치 조정 → §12 기록 | 완료 |
-| S6 (후속) | `A00540` 매핑 json 에 `dmy_in_phonemes` 대상 추가 (`CNT_PHONEMES.X → dmy_in_phonemes.X`, scale 10 그대로) | 별도 턴 |
+| S6 | (불필요해짐) — 더미가 `jali_slider_dummy_in.json` 의 이름 · 단위와 같아 A00540 이 그 json 으로 0050 에 바로 키를 넣는다 | — |
 
 ---
 
@@ -302,4 +317,23 @@ dmy_in_jali_arkit.mouthFunnel ──→ bw_dmy_CTRL_L_mouth_funnelU_y.input[k]  
 - `× jawOpen` 노드가 `CTRL_expressions` 를 읽는다 — `CTRL_C_jaw` 체인과 입술 체인은 분리돼 있어 순환이 없지만, 나중에 `jawOpen` 을 입술 쪽에서 미는 매핑을 추가하면 순환이 생긴다. `cycleCheck` 를 T8 에 둔다.
 - 경유 경로의 `mouthPucker` 는 Epic 포즈 때문에 `funnel` · `towards` 를 함께 끈다 — `OHH` `UUU` `WWW` `RRR` `SSH` `WA_PEDAL` 이 겹치는 입(둥근 입)에서 `funnelU/D` 가 커질 수 있다. 조정은 `jali_bw_mouthPucker` 가중치에서.
 - `tongueOut` 의 JALI 가중치 0.30(TTH) 은 0040 부터 임시값이다.
-- A0020 `global_scale` 과 이 문서의 `dmy_in_jali.weight` 는 둘 다 세기 배율이다 — 두 리그를 이으면 곱해진다. 보통 한쪽만 쓴다.
+- A0020 `global_scale` 과 이 문서의 `DUMMY_IN_JALI.weight` 는 둘 다 세기 배율이다 — 두 리그를 이으면 곱해진다. 보통 한쪽만 쓴다.
+- A0020 의 슬라이더 꼭대기는 `output_max` 12 = angela 12 → 이 더미로는 **1.2** 가 들어온다(0040 §3 가중치의 1.2배, SDK 끝값 1 이 막는다). VisemeNet 1.0 = angela 10 을 지키려면 A0020 의 `output_max` 를 10 으로 두거나 `global_scale` 0.83 을 쓴다.
+
+---
+
+## 12. 구현 · 검증 결과 (2026-10-22, 이 PC · mayapy 2024)
+
+- 결과 파일 **`07_MH_sample_02/0010_sample_0050.mb`** (28.2 MB) = 0040 + JALI. 0040 · 0030 은 그대로.
+- 스크립트: `examples/build_mh_jali_dummy.py` (`DIRECT` · `DIRECT_TO_CTRL` 상수 = §3 · §5.3, `connect_a0020()`), `examples/check_mh_jali_dummy.py`.
+  S1 · S2 의 일반화는 회귀 확인 — 0040 재생성 → 0100 검증 `RESULT OK`, `build_jali_arkit_node.build()` 기본 호출 노드 15 · 17 · 15 · `MBP` 10 → `mouthClose` 0.62.
+- 만든 것: `DUMMY_IN_JALI` (Jaw Lip 0.6, weight) · `DUMMY_IN_PHONEMES` 16 · `DUMMY_IN_COARTIC` 6 · `dmy_in_jali_arkit` 52 · `dmy_in_jali_mh` 9;
+  `jali_bw_*` 24 · `jali_md_*` 28 · `jali_cl_*` 24 · `jali_mdjaw_*` 3; 경유 경로가 0040 의 45개 축에 입력 49개 추가; 새 컨트롤러 4개(`tongue_tipMove` · `tongue_bendTwist` · `mouth_lipBiteD` L/R)에 `bw_dmy/pma_dmy/GRP_dmy` → 합계 `bw_dmy_*` 75 · `GRP_dmy_*` 72. 시안 68 → 72, 노랑 96 → 92.
+- `check_mh_jali_dummy.py` → **`RESULT OK`** (T1 · T2 25 케이스 × 252 채널 · T3 · T5 · T6 · T7 · T8 · T9).
+  - 대표값(입력 1.0, Jaw Lip 0.6): `MBP` → `lipsTogether*` 0.620 · `jawOpen` 0.430; `LNTD` → `tongueTipUp` 0.610 · `tongueUp` 0.300 · `jawOpen` 0.300;
+    `GK` → `tongueBendUp` 0.400 · `tongueTipDown` 0.440; `FFF` → `mouthLowerLipBiteL` 0.500 · `mouthLowerLipRollInL` 0.240 · `mouthDimpleL` 0.560;
+    `AAA` + `COARTIC.MMM` → `lipsTogether*` 0.536 (= 0.80 × 0.67), `MMM` 단독 0.
+  - `cycleCheck -all` 순환 없음(`× jawOpen` 노드 3개 포함). 손 조작 자유(75축 모두 비연결).
+  - T9: A0020 을 `JALI` 네임스페이스로 레퍼런스 → `connect_a0020('JALI')` 24 연결, `CTL_PH_MBP.ty` 10/12 → `lipsTogether*` 0.62, `Jaw` 9 → 0.6.
+- **미확인 (사용자 GUI)**: §3 혀 부호 해석 — 0050 에서 `DUMMY_IN_PHONEMES.LNTD` · `GK` · `RRR`, `DUMMY_IN_COARTIC.LNTD` · `GK` 를 올려 혀가 angela 와 같은 뜻으로 움직이는지, `FFF` 의 아랫입술, `AAA` + `COARTIC.MMM` 의 입술 닫힘. 틀리면 `build_mh_jali_dummy.DIRECT` 의 값 · `DIRECT_TO_CTRL` 의 부호만 고쳐 다시 생성.
+- A00540 로 키 넣기: 0050 을 열고 `jali_slider_dummy_in.json` 을 고르면 `DUMMY_IN_*` 세 노드에 바로 키가 들어간다 (A00540 쪽 변경 없음 — 실제 실행은 아직 안 해 봤다).

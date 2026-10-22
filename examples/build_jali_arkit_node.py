@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 # Python Script by Ji Hun Park
-# last Update date : 2026-10-19
+# last Update date : 2026-10-22
 # [JUN_JALI] JALI 음소 -> ARKit 52 블렌드셰이프 변환 노드 생성 (docs/0040_jali_arkit_mapping.md §3)
 #
 # 만드는 것
@@ -16,6 +16,7 @@
 #   -> Left / Right 쌍은 같은 체인 하나에서 둘 다 받는다 (JALI 근육은 좌우 공용).
 #
 # 사용
+#   build(src_plugs=..., out_node=..., jali_unit=0.6, phoneme_unit=1.0, weight_plug=...) : 다른 리그의 더미에 붙일 때 (docs/0110)
 #   Maya Script Editor:  import build_jali_arkit_node as b; b.build()
 #   배치:  mayapy build_jali_arkit_node.py [out.ma]
 #   컨트롤러: Maya 에서 b.build_controller()  /  배치는 mayapy build_jali_arkit_node.py --ctl [out.ma]
@@ -91,41 +92,62 @@ def _add_attr(node, name, minv, maxv, default=0.0):
     cmds.addAttr(node, ln=name, at='double', min=minv, max=maxv, dv=default, k=True)
 
 
-def build(prefix=''):
-    """노드를 만들고 (grp, in_node, out_node) 를 돌려준다."""
+def build(prefix='', src_plugs=None, out_node=None, jali_unit=MEASURED_JALI, phoneme_unit=MEASURED_PHONEME,
+          weight_plug=None):
+    """노드를 만들고 (grp, in_node, out_node) 를 돌려준다.
+
+    기본 호출(build())은 JALI_IN / ARKIT_OUT 을 새로 만든다 (angela 단위: Jaw Lip 0~15 기본 9, 음소 0~12, 실측 = 10).
+    다른 리그에 붙일 때 (docs/0110):
+      src_plugs    : {'Jaw': 'DUMMY_IN_JALI.Jaw', 'AAA': 'DUMMY_IN_PHONEMES.AAA', ...} — 입력 노드를 만들지 않고 이 plug 를 읽는다
+      out_node     : ARKit 52 어트리뷰트가 이미 있는 노드 — 만들지 않고 여기에 연결
+      jali_unit    : "실측 조건(angela 9)" 에 해당하는 입력값 (0~1 더미면 0.6)
+      phoneme_unit : "음소를 온전히 발음(angela 10)" 에 해당하는 입력값 (0~1 더미면 1.0)
+      weight_plug  : 전체 세기를 곱할 plug (없으면 곱하지 않는다)
+    """
     p = prefix
-    grp = cmds.createNode('transform', n=p + 'JALI_ARKit_GRP')
-    in_node = cmds.createNode('transform', n=p + 'JALI_IN', p=grp)
-    out_node = cmds.createNode('transform', n=p + 'ARKIT_OUT', p=grp)
-    for node in (in_node, out_node):
+    grp = None
+    if src_plugs is None or out_node is None:
+        grp = cmds.createNode('transform', n=p + 'JALI_ARKit_GRP')
+    in_node = None
+    if src_plugs is None:
+        in_node = cmds.createNode('transform', n=p + 'JALI_IN', p=grp)
+        _add_attr(in_node, 'Jaw', 0.0, 15.0, MEASURED_JALI)
+        _add_attr(in_node, 'Lip', 0.0, 15.0, MEASURED_JALI)
+        for name in PHONEMES + PEDALS:
+            _add_attr(in_node, name, 0.0, PHONEME_MAX)
+        src_plugs = {name: in_node + '.' + name for name in ['Jaw', 'Lip'] + PHONEMES + PEDALS}
+    if out_node is None:
+        out_node = cmds.createNode('transform', n=p + 'ARKIT_OUT', p=grp)
+        # 출력 52개 (매핑이 없는 타겟도 만들어 둔다 -> 아바타 연결이 균일)
+        for name in ARKIT_52:
+            _add_attr(out_node, name, 0.0, 1.0)
+    for node in (in_node, out_node if grp else None):
+        if node is None:
+            continue
         for ch in ('t', 'r', 's'):
             for ax in 'xyz':
                 cmds.setAttr('{0}.{1}{2}'.format(node, ch, ax), k=False, cb=False)
         cmds.setAttr(node + '.v', k=False, cb=False)
 
-    # 입력
-    _add_attr(in_node, 'Jaw', 0.0, 15.0, MEASURED_JALI)
-    _add_attr(in_node, 'Lip', 0.0, 15.0, MEASURED_JALI)
-    for name in PHONEMES + PEDALS:
-        _add_attr(in_node, name, 0.0, PHONEME_MAX)
-
-    # 축 스케일 = Jaw / 9, Lip / 9
+    # 축 스케일 = Jaw / jali_unit (× weight), Lip / jali_unit (× weight)
     scale = {}
     for axis in ('Jaw', 'Lip'):
         md = cmds.createNode('multDoubleLinear', n=p + 'md_scale' + axis)
-        cmds.connectAttr(in_node + '.' + axis, md + '.input1')
-        cmds.setAttr(md + '.input2', 1.0 / MEASURED_JALI)
-        scale[axis] = md + '.output'
-
-    # 출력 52개 (매핑이 없는 타겟도 만들어 둔다 -> 아바타 연결이 균일)
-    for name in ARKIT_52:
-        _add_attr(out_node, name, 0.0, 1.0)
+        cmds.connectAttr(src_plugs[axis], md + '.input1')
+        cmds.setAttr(md + '.input2', 1.0 / jali_unit)
+        out_plug = md + '.output'
+        if weight_plug:
+            mdw = cmds.createNode('multDoubleLinear', n=p + 'md_weight' + axis)
+            cmds.connectAttr(out_plug, mdw + '.input1')
+            cmds.connectAttr(weight_plug, mdw + '.input2')
+            out_plug = mdw + '.output'
+        scale[axis] = out_plug
 
     for channel, weights in MAPPING.items():
         bw = cmds.createNode('blendWeighted', n=p + 'bw_' + channel)
         for i, (src, w) in enumerate(weights.items()):
-            cmds.connectAttr('{0}.{1}'.format(in_node, src), '{0}.input[{1}]'.format(bw, i))
-            cmds.setAttr('{0}.weight[{1}]'.format(bw, i), w / MEASURED_PHONEME)
+            cmds.connectAttr(src_plugs[src], '{0}.input[{1}]'.format(bw, i))
+            cmds.setAttr('{0}.weight[{1}]'.format(bw, i), w / phoneme_unit)
 
         md = cmds.createNode('multDoubleLinear', n=p + 'md_' + channel)
         cmds.connectAttr(bw + '.output', md + '.input1')
@@ -137,7 +159,8 @@ def build(prefix=''):
         for target in _targets(channel):
             cmds.connectAttr(cl + '.outputR', '{0}.{1}'.format(out_node, target))
 
-    cmds.select(in_node)
+    if in_node:
+        cmds.select(in_node)
     return grp, in_node, out_node
 
 

@@ -2,6 +2,7 @@
 # Python Script by Ji Hun Park
 # last Update date : 2026-10-22
 # [JUN_JALI] MetaHuman facial GUI <-> ARKit 52 dummy nodes  (docs/0100_mh_arkit_dummy_plan.md)
+#   ensure_axis / add_inputs / build_input_path(src_node, per_axis) are reused by build_mh_jali_dummy.py (docs/0110)
 #
 # 만드는 것 (0010_sample_0030.mb 를 열어 더해서 0010_sample_0040.mb 로 저장)
 #   |rig|DMY_grp
@@ -387,39 +388,65 @@ def create_dummies():
     return dmy_in, dmy_out
 
 
-def build_input_path(visual=True, mouthclose=True):
-    """dmy_in -> bw -> pma(SDK 앞) + GRP_dmy(시각). 반환: {ctrl: GRP 또는 None}."""
-    per_axis = used_controllers(mouthclose)
+def axis_nodes(ctl, ax):
+    """컨트롤러 축의 노드 이름 (bw, pma, GRP)."""
+    return ('bw_dmy_%s_%s' % (ctl, ax), 'pma_dmy_%s_%s' % (ctl, ax), 'GRP_dmy_%s' % ctl)
+
+
+def add_inputs(bw, inputs):
+    """blendWeighted 의 다음 빈 input[i] 부터 (plug, weight) 를 잇는다. 반환: 추가한 수."""
+    used = cmds.getAttr(bw + '.input', multiIndices=True) or []
+    i = (max(used) + 1) if used else 0
+    for plug, w in inputs:
+        cmds.connectAttr(plug, '%s.input[%d]' % (bw, i))
+        cmds.setAttr('%s.weight[%d]' % (bw, i), w)
+        i += 1
+    return len(inputs)
+
+
+def ensure_axis(ctl, ax, visual=True):
+    """컨트롤러 축에 bw/pma(SDK 앞)/GRP_dmy 를 만든다 (이미 있으면 그대로). 반환: (bw, 새로 만들었는지, 끊어 이은 연결 수)."""
+    bw, pma, grp = axis_nodes(ctl, ax)
+    if cmds.objExists(bw):
+        return bw, False, 0
+    path = _ctrl_path(ctl)
+    attr = AXIS_ATTR[ax]
+    plug = path + '.' + attr
+    cmds.createNode('blendWeighted', name=bw)
+    cmds.createNode('plusMinusAverage', name=pma)
+    cmds.setAttr(pma + '.operation', 1)
+    dsts = cmds.listConnections(plug, source=False, destination=True, plugs=True) or []
+    if not dsts:
+        raise BuildError('%s has no outgoing connection (SDK expected)' % plug)
+    for d in dsts:
+        cmds.disconnectAttr(plug, d)
+        cmds.connectAttr(pma + '.output1D', d)
+    cmds.connectAttr(plug, pma + '.input1D[0]')
+    cmds.connectAttr(bw + '.output', pma + '.input1D[1]')
+    if visual:
+        if not cmds.objExists(grp):
+            parent = cmds.listRelatives(path, parent=True, fullPath=True)[0]
+            cmds.group(empty=True, name=grp, parent=parent)
+            cmds.parent(path, grp, relative=True)
+        cmds.connectAttr(bw + '.output', grp + '.' + attr)
+    return bw, True, len(dsts)
+
+
+def build_input_path(visual=True, mouthclose=True, src_node=None, per_axis=None):
+    """src_node(기본 dmy_in) -> bw -> pma(SDK 앞) + GRP_dmy(시각). 반환: ({ctrl: GRP 또는 None}, 끊어 이은 연결 수).
+
+    per_axis = {(ctrl, axis): [(attr, weight), ...]} — 생략하면 ARKIT_TO_CTRL (dmy_in 용).
+    """
+    src_node = src_node or IN_NODE
+    per_axis = per_axis if per_axis is not None else used_controllers(mouthclose)
     groups = {}
     n_rewired = 0
     for (ctl, ax), inputs in per_axis.items():
-        path = _ctrl_path(ctl)
-        attr = AXIS_ATTR[ax]
-        plug = path + '.' + attr
-        bw = cmds.createNode('blendWeighted', name='bw_dmy_%s_%s' % (ctl, ax))
-        for i, (k, w) in enumerate(inputs):
-            cmds.connectAttr('%s.%s' % (IN_NODE, k), '%s.input[%d]' % (bw, i))
-            cmds.setAttr('%s.weight[%d]' % (bw, i), w)
-        pma = cmds.createNode('plusMinusAverage', name='pma_dmy_%s_%s' % (ctl, ax))
-        cmds.setAttr(pma + '.operation', 1)
-        dsts = cmds.listConnections(plug, source=False, destination=True, plugs=True) or []
-        if not dsts:
-            raise BuildError('%s has no outgoing connection (SDK expected)' % plug)
-        for d in dsts:
-            cmds.disconnectAttr(plug, d)
-            cmds.connectAttr(pma + '.output1D', d)
-            n_rewired += 1
-        cmds.connectAttr(plug, pma + '.input1D[0]')
-        cmds.connectAttr(bw + '.output', pma + '.input1D[1]')
-        if visual:
-            if ctl not in groups:
-                parent = cmds.listRelatives(path, parent=True, fullPath=True)[0]
-                grp = cmds.group(empty=True, name='GRP_dmy_%s' % ctl, parent=parent)
-                cmds.parent(path, grp, relative=True)
-                groups[ctl] = grp
-            cmds.connectAttr(bw + '.output', groups[ctl] + '.' + attr)
-        else:
-            groups.setdefault(ctl, None)
+        bw, _new, n = ensure_axis(ctl, ax, visual)
+        n_rewired += n
+        add_inputs(bw, [('%s.%s' % (src_node, k), w) for k, w in inputs])
+        grp = axis_nodes(ctl, ax)[2]
+        groups[ctl] = grp if (visual and cmds.objExists(grp)) else None
     return groups, n_rewired
 
 
@@ -452,12 +479,15 @@ def build_output_path(mouthclose=True):
 
 def assign_material(controllers):
     """쓰이는 컨트롤러의 메시 쉐입에 시안 lambert 를 배정. 반환: 쉐입 목록."""
+    sg = MAPPED_SHADER + 'SG'
     if cmds.objExists(MAPPED_SHADER):
-        raise BuildError('%s already exists' % MAPPED_SHADER)
-    mat = cmds.shadingNode('lambert', asShader=True, name=MAPPED_SHADER)
-    cmds.setAttr(mat + '.color', *MAPPED_COLOR, type='double3')
-    sg = cmds.sets(renderable=True, noSurfaceShader=True, empty=True, name=MAPPED_SHADER + 'SG')
-    cmds.connectAttr(mat + '.outColor', sg + '.surfaceShader')
+        if not cmds.objExists(sg):
+            raise BuildError('%s exists without %s' % (MAPPED_SHADER, sg))
+    else:
+        mat = cmds.shadingNode('lambert', asShader=True, name=MAPPED_SHADER)
+        cmds.setAttr(mat + '.color', *MAPPED_COLOR, type='double3')
+        sg = cmds.sets(renderable=True, noSurfaceShader=True, empty=True, name=sg)
+        cmds.connectAttr(mat + '.outColor', sg + '.surfaceShader')
     shapes = []
     for ctl in controllers:
         path = _ctrl_path(ctl)
