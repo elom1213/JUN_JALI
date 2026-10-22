@@ -16,6 +16,7 @@
 | [docs/0090_jali_slider_ctl_plan.md](docs/0090_jali_slider_ctl_plan.md) | 제작 계획 — JALI 슬라이더 컨트롤러 리그 (`02_Cage_JALI/A0020`): angela 어트리뷰트 1:1 슬라이더 · `output_min/max` 리맵 · 더미 입력/출력 노드 |
 | [docs/0100_jali_dummy_out_attrs_guide.md](docs/0100_jali_dummy_out_attrs_guide.md) | **안내 — `DUMMY_OUT_PHONEMES` · `DUMMY_OUT_COARTIC` 어트리뷰트가 만드는 얼굴 표현** (angela 실측: 턱 각도 · 입술 근육 · 혀, 동시조음 채널의 뜻과 같이 쓰는 예) |
 | [docs/0100_mh_arkit_dummy_plan.md](docs/0100_mh_arkit_dummy_plan.md) | 제작 계획 — 메타휴먼 페이셜 ↔ ARKit 52 ↔ JALI 더미 노드 에셋 (`07_MH_sample_02/0010_sample_0040`): `dmy_in`/`dmy_out`(ARKit 52) · `dmy_in_jali` 매핑표, Epic ARKit 포즈 실측, 쓰이는 컨트롤러 68개 색 구분 (확인 질문 Q1~Q8) |
+| [docs/0110_jali_mh_dummy_plan.md](docs/0110_jali_mh_dummy_plan.md) | 매칭표 · 제작 계획 — JALI 음소 ↔ 메타휴먼 페이셜 더미 노드 (`0010_sample_0050`): `dmy_in_jali/phonemes/coartic`(A0020 `DUMMY_OUT_*` 와 이름 · 단위 동일), ARKit 경유 합성표 + 혀 · 입술 깨물기 · 턱 비례 동시조음 직접 매핑 제안 (확인 질문 Q1~Q8) |
 
 **빠른 시작**: ① `setup_env.bat` 더블클릭(한 번 — PC 에 Python 3.12 ~ 3.14 만 있으면 이 폴더 전용 Python 3.11 을 받아 쓴다) → ② `Run_VisemeNet_Converter.bat` 더블클릭 → wav 넣고 `Convert`
 → ③ 마야에서 `Maya_Python/JUN_All/tools/A00540_JaliLipSync/__dragDrop_A00540.py` 를 드롭해 셸프 툴로 리그에 키.
