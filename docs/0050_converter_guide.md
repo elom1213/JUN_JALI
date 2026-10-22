@@ -1,6 +1,6 @@
 # 설치 · VisemeNet Converter 사용 안내
 
-> **작성** 2026-10-19 · **갱신** 2026-10-22 (v01.02 Windows 10 · Python 3.14 — §1 · §6.1 · §6.7) · 대상: `setup_env.bat` · `Run_VisemeNet_Converter.bat` ·
+> **작성** 2026-10-19 · **갱신** 2026-10-22 (v01.03 Convert 진행 팝업 — §2 4번; v01.02 Windows 10 · Python 3.14 — §1 · §6.1 · §6.7) · 대상: `setup_env.bat` · `Run_VisemeNet_Converter.bat` ·
 > `setup_mfa.bat` · `tools/VisemeNet_Converter` v01.01
 > · 마야 쪽은 `Maya_Python/JUN_All/docs/A00540_JaliLipSync.md` · 계획 [0030](0030_tool_plan.md) · 대본 보정 계획 [0060](0060_transcript_mfa_plan.md)
 
@@ -83,6 +83,11 @@ venv 는 `python.exe` 가 실제로 생겼는지 본다.
    - `Inference` — **`Deterministic (recommended)`** / `Original - random dropout` (§4)
    - `Transcript (optional)` — `Audio only` (기본) / `Correct with transcript (MFA)` (§6)
 4. **`Check Files`** — 변환 없이 검사만. **`Convert`** — 검사 → 변환. `Stop` 은 지금 파일이 끝나면 멈춘다.
+   `Convert` 를 누르면 **진행 팝업**(게이지 창)이 떠서 끝날 때까지 채워진다 (v01.03):
+   `Checking files` → `Loading model`(첫 변환만) → `Aligning transcripts (MFA)`(Correct 모드 + 대본이 있을 때만) → `Converting`
+   (`n / 전체  파일명`) → `Done` 100 % 뒤 닫힌다. 단계 폭은 예상 소요 시간, 파일 폭은 음성 길이에 비례하고 보고 사이에는
+   예상 시간에 맞춰 부드럽게 차오른다(경계는 넘지 않는다). 오른쪽 아래는 경과 시간, 팝업의 `Stop` 은 창의 `Stop` 과 같다.
+   검사 실패 · 오류 · Stop 이면 100 % 를 만들지 않고 바로 닫히며 이유는 로그에 남는다.
 
 설정 · 목록은 창을 닫을 때 저장되어 다음에 그대로 열린다(`tools/VisemeNet_Converter/data/settings.json`).
 
@@ -163,7 +168,8 @@ inverted dropout 이라 이것이 곧 dropout 의 기댓값 추론이다.
 |------|------|
 | `tools/VisemeNet_Converter/launch.py` | 진입점. `sys.path` = 저장소 루트 + `vendor/`. 시작 오류는 메시지 창 + `data/startup_error.log` |
 | `app/core/wav_check.py` | `check_wav()` — E01~E08, W01~W02 |
-| `app/core/converter.py` | `Engine`(모델 1회 로드, 결정적 모드), `preflight()`(E09~E11 · E30~E32 · E34), `run_batch()`(E20~E24, Stop, 정렬 · 보정), `expected_rows()` |
+| `app/core/converter.py` | `Engine`(모델 1회 로드, 결정적 모드), `preflight()`(E09~E11 · E30~E32 · E34), `run_batch()`(E20~E24, Stop, 정렬 · 보정, `stage` 콜백), `expected_rows()` |
+| `app/ui/progress_dialog.py` | `ConvertProgressDialog` — Convert 진행 팝업 (공용 `JUN_mod_progress_qt_v01` 기반, 워커 시그널 `planned` · `phase` · `progress` 로 채움, 예상 시간 기반 보간) |
 | `app/core/aligner.py` | MFA 찾기(`mfa_path.local.txt`) · 대본 찾기 · 한 번에 정렬(`mfa align`, G2P) · TextGrid 읽기 — E30~E33 |
 | `app/core/viseme_merge.py` | 안 B 보정(`correct()`) · IPA 매핑(`PhoneMap`) — 순수 numpy |
 | `saved_params/ipa_to_jali.json` | MFA 음소(IPA) → JALI 비짐 가중치 |
@@ -177,7 +183,7 @@ inverted dropout 이라 이것이 곧 dropout 의 기댓값 추론이다.
 ```
 tools\VisemeNet_Converter\tests\make_bad_wavs.py <작업폴더>   검사 규칙 13개 (나쁜 wav 를 만들어 코드 확인)
 tools\VisemeNet_Converter\tests\test_core.py     <작업폴더>   일괄 변환 17개 (사전검사 중단 · 결정성 · Stop · E09/E11/E20/E21)
-tools\VisemeNet_Converter\tests\test_ui.py       <작업폴더>   오프스크린 UI 16개 (실제 Convert 경로 · 한글 경로 · Correct 모드 · 설정 복원)
+tools\VisemeNet_Converter\tests\test_ui.py       <작업폴더>   오프스크린 UI 26개 (실제 Convert 경로 · 진행 팝업(단계 · 단조 증가 · 100 % 뒤 닫힘 · Stop) · 한글 경로 · Correct 모드 · 설정 복원)
 tools\VisemeNet_Converter\tests\test_merge.py    <작업폴더>   보정 · 매핑 · TextGrid · 대본 찾기 · MFA 실행 환경 격리 41개 (MFA 없이 합성 데이터, 사전 음소 전수 검사)
 tools\VisemeNet_Converter\tests\test_align.py    <작업폴더>   Correct 모드 통합 16개 (실제 MFA — setup_mfa.bat 뒤)
 ```

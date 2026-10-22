@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 # Python Script by Ji Hun Park
-# last Update date : 2026-10-20
+# last Update date : 2026-10-22
 # VisemeNet Converter - 추론 엔진 + 일괄 변환 (UI 비의존, docs/0030_tool_plan.md §4.3 ~ §4.5)
 #
 # 흐름: preflight(전부 검사) -> 하나라도 실패면 아무것도 변환하지 않음 -> run_batch(하나씩 추론 · 쓰기)
@@ -260,7 +260,8 @@ def preflight(wav_paths, out_dir, overwrite, max_seconds, write_json=True, align
     return jobs, problems
 
 
-def run_batch(engine, jobs, write_json, converter_name, log, progress=None, should_stop=None, align_cfg=None):
+def run_batch(engine, jobs, write_json, converter_name, log, progress=None, should_stop=None, align_cfg=None,
+              stage=None):
     """jobs 를 차례로 변환한다. 오류가 나면 멈춘다.
 
     Args:
@@ -268,6 +269,7 @@ def run_batch(engine, jobs, write_json, converter_name, log, progress=None, shou
         progress: progress(done, total, name) 또는 None.
         should_stop: () -> bool. True 면 다음 파일 전에 멈춘다.
         align_cfg: AlignConfig (preflight 를 거친 것) 또는 None(오디오만).
+        stage: stage(key) 또는 None - 단계가 바뀔 때 알린다: "align"(대본 있는 파일이 있을 때만) / "convert".
 
     Returns:
         (written_jobs, stopped_reason) - 다 끝나면 stopped_reason 은 None.
@@ -280,6 +282,8 @@ def run_batch(engine, jobs, write_json, converter_name, log, progress=None, shou
     log("INFO", "inference mode: {0}".format(engine.mode_name))
     aligned, phone_map, mfa_name = {}, None, ""
     if align_cfg is not None:
+        if stage and any(job.transcript for job in jobs):
+            stage("align")
         try:
             aligned, phone_map, mfa_name = _align_all(jobs, align_cfg, log, progress)
         except (aligner.AlignError, ValueError, OSError) as e:
@@ -291,6 +295,8 @@ def run_batch(engine, jobs, write_json, converter_name, log, progress=None, shou
         if should_stop and should_stop():
             return written, "stopped by user after alignment"
 
+    if stage:
+        stage("convert")
     for i, job in enumerate(jobs):
         name = os.path.basename(job.wav_path)
         if should_stop and should_stop():

@@ -1,10 +1,12 @@
 # -*- coding: utf-8 -*-
 # Python Script by Ji Hun Park
-# last Update date : 2026-10-20
+# last Update date : 2026-10-22
 # VisemeNet Converter - 메인 창 (docs/0030_tool_plan.md §4.2)
 #
 # wav 목록(공용 TSL) + 출력 폴더 + 옵션 + 대본 보정(Correct 모드, MFA) + Check Files / Convert / Stop + 진행 막대 + 로그.
 # 변환은 QThread 워커에서 돈다(창이 멈추지 않게). TensorFlow 는 첫 Convert 때 워커 안에서 불러온다.
+# Convert 를 누르면 진행 팝업(progress_dialog.ConvertProgressDialog)이 떠서 끝날 때까지 게이지를 채운다 -
+# 워커의 planned / phase / progress 시그널로만 움직이고, 팝업의 Stop 은 메인 창 Stop 과 같다.
 # 규칙: 시작 전에 전부 검사하고 하나라도 실패하면 아무것도 변환하지 않는다. 변환 중 오류도 즉시 멈춘다.
 # 모든 UI 문자열 · 로그는 영어.
 
@@ -18,6 +20,7 @@ from ..config.version import APP_NAME, VERSION, LAST_UPDATE
 from ..config.app_meta import icon_path
 from ..core import aligner, converter, settings
 from ..core.wav_check import check_wav, WavError, DEFAULT_MAX_SECONDS
+from .progress_dialog import ConvertProgressDialog
 
 
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(
@@ -33,6 +36,8 @@ class ConvertWorker(QThread):
 
     log = Signal(str, str)                  # level, message
     progress = Signal(int, int, str)        # done, total, name
+    planned = Signal(bool, bool, list)      # 사전 검사 뒤: 모델 로드 필요, 정렬 필요, 파일별 음성 길이(초)
+    phase = Signal(str)                     # "check" / "load" / "align" / "convert"
     finished_batch = Signal(int, str)       # written count, stop reason ("" = 정상 종료)
 
     def __init__(self, engine, wavs, out_dir, overwrite, max_seconds, write_json, align_cfg=None, parent=None):
@@ -51,6 +56,7 @@ class ConvertWorker(QThread):
 
     def run(self):
         try:
+            self.phase.emit("check")
             jobs, problems = converter.preflight(
                 self.wavs, self.out_dir, self.overwrite, self.max_seconds, self.write_json, self.align_cfg,
                 REPO_ROOT)
@@ -63,8 +69,12 @@ class ConvertWorker(QThread):
             for job in jobs:
                 for code, message in job.info.warnings:
                     self.log.emit("WARN", "{0}  {1} {2}".format(os.path.basename(job.wav_path), code, message))
+            self.planned.emit(not self.engine.loaded,
+                              self.align_cfg is not None and any(job.transcript for job in jobs),
+                              [float(job.info.seconds) for job in jobs])
 
             if not self.engine.loaded:
+                self.phase.emit("load")
                 self.log.emit("INFO", "Loading model (first run takes a few seconds)...")
                 self.engine.load()
 
@@ -72,7 +82,8 @@ class ConvertWorker(QThread):
                 self.engine, jobs, self.write_json, "{0} {1}".format(APP_NAME, VERSION),
                 log=lambda level, msg: self.log.emit(level, msg),
                 progress=lambda done, total, name: self.progress.emit(done, total, name),
-                should_stop=lambda: self._stop, align_cfg=self.align_cfg)
+                should_stop=lambda: self._stop, align_cfg=self.align_cfg,
+                stage=lambda key: self.phase.emit(key))
             if stopped:
                 self.finished_batch.emit(len(written), "Stopped: {0}. Files already written: {1}"
                                          .format(stopped, len(written)))
@@ -101,6 +112,7 @@ class MainWindow(QWidget):
         self._prefs = settings.load()
         self._engine = None
         self._worker = None
+        self._popup = None
 
         self._build_ui()
         self._restore()
@@ -462,13 +474,23 @@ class MainWindow(QWidget):
         self._worker.finished_batch.connect(self._on_finished)
         self._set_running(True)
         self._log("INFO", "Converting {0} file(s)...".format(len(wavs)))
+        self._show_popup(len(wavs))
         self._worker.start()
 
     def on_stop(self, *args):
-        if self._worker is not None:
+        if self._worker is not None and not self._worker._stop:
             self._worker.request_stop()
             self.btn_stop.setEnabled(False)
             self._log("WARN", "Stop requested - finishing the current file.")
+
+    def _show_popup(self, n_files):
+        """Convert 진행 팝업 - 워커 시그널이 단계 · 파일 진행을 넣고, 끝나면 _on_finished 가 닫는다."""
+        self._popup = ConvertProgressDialog(self, n_files, self._engine.loaded, self._correct_mode())
+        self._popup.stop_requested.connect(self.on_stop)
+        self._worker.planned.connect(self._popup.plan)
+        self._worker.phase.connect(self._popup.begin)
+        self._worker.progress.connect(self._popup.file_progress)
+        self._popup.start()
 
     def _on_progress(self, done, total, name):
         self.progress.setRange(0, max(total, 1))
@@ -476,6 +498,9 @@ class MainWindow(QWidget):
         self.progress.setFormat("{0} / {1}  {2}".format(done, total, name) if name else "{0} / {1}".format(done, total))
 
     def _on_finished(self, written, reason):
+        if self._popup is not None:
+            self._popup.close_popup(not reason)
+            self._popup = None
         self._set_running(False)
         if reason:
             self._log("ERROR", reason)

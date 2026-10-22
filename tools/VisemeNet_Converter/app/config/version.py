@@ -17,7 +17,11 @@
 #        PYTHONPATH made the tool's Python 3.11 load the 3.14 standard library and fail on its
 #        first import (numpy -> warnings -> _py_warnings: AttributeError). setup_mfa.bat: install
 #        folder at most 80 characters (260-character path limit), same isolation in all .bat files.
+# 01.03  Convert progress popup: a modal gauge window opens when Convert is pressed and fills until the
+#        batch ends (Checking files / Loading model / Aligning transcripts / Converting, weighted by the
+#        expected time, per-file steps weighted by audio length, smooth fill between reports, elapsed
+#        time, Stop button = stop after the current file). Closes at 100 %, or at once on stop / error.
 
 APP_NAME = "VisemeNet Converter"
-VERSION = "01.02"
+VERSION = "01.03"
 LAST_UPDATE = "2026-10-22"
