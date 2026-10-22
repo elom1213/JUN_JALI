@@ -88,7 +88,7 @@ JALI 음소는 **단일 블렌드셰이프가 아니다.** 리그 안에서 한 
 |------|------|-------|
 | `WA_PEDAL` (입술 오므림을 따로 얹기) | `incisivus` 0.48 | `mouthPucker` |
 | `YA_PEDAL` (입술 펴기) | `risPlatysma` 0.37 · `buccinator` 0.27 · `zygomatic` 0.12 | `mouthStretch` · `mouthDimple` · `mouthSmile` |
-| `LNTD` · `GK` · `MMM` · `FFF` | **단독으로는 근육 · 턱 변화 없음** — ⚠️ 2026-10-22 정정: `LNTD` `GK` 는 **혀가 크게 움직인다**(이 표는 혀 채널을 빼고 쟀다), `MMM` `FFF` 는 **턱이 벌어진 만큼 곱해져** 턱이 닫히면 0 | `MMM` ≈ `jawOpen` × `mouthClose`, `FFF` ≈ `jawOpen` × `mouthRollLower` · `mouthShrugLower`. 혀는 ARKit 에 없음. 상세는 [0100](0100_jali_dummy_out_attrs_guide.md) §3 |
+| `LNTD` · `GK` · `MMM` · `FFF` | **단독으로는 근육 · 턱 변화 없음** — ⚠️ 2026-10-22 정정: `LNTD` `GK` 는 **혀가 크게 움직인다**(이 표는 혀 채널을 빼고 쟀다), `MMM` `FFF` 는 **턱이 벌어진 만큼 곱해져** 턱이 닫히면 0 | `MMM` ≈ `jawOpen` × `mouthClose`, `FFF` ≈ `jawOpen` × `mouthRollLower` · `mouthShrugLower`. 혀는 ARKit 에 없음. 상세는 [0120](0120_jali_dummy_out_attrs_guide.md) §3 |
 
 **거의 모든 음소에 공통**으로 `orbOris_up_lo` −0.16 · `orbOris_down_hi` −0.09 (입술이 살짝 떨어짐)가 붙는다.
 ARKit 에선 무시하거나 `mouthUpperUp` / `mouthLowerDown` 에 소량 더하는 정도로 충분하다.
