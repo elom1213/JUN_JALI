@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 # Python Script by Ji Hun Park
-# last Update date : 2026-10-20
+# last Update date : 2026-10-22
 # VisemeNet Converter - Montreal Forced Aligner(MFA) 호출 + TextGrid 읽기 (UI 비의존)
 #
 # docs/0060_transcript_mfa_plan.md §3. MFA 는 setup_mfa.bat 이 따로 설치한다(추론 .venv 와 섞지 않는다).
@@ -10,6 +10,7 @@
 #
 # 정렬 한 번에 MFA 시작 비용(수십 초)이 들어서, 일괄 변환은 파일을 한 말뭉치(corpus)로 묶어 **한 번에** 정렬한다.
 # 입력 wav 는 모노 16-bit 사본을 임시 폴더에 만들어 넘긴다 - 원본은 건드리지 않는다.
+# 대본은 언어별로 정규화해서 넘긴다(normalize_transcript) - 일본어는 공백 · 줄바꿈을 전부 뺀다.
 
 import os
 import re
@@ -29,6 +30,11 @@ LANGUAGES = {
     "Japanese": ("japanese_mfa", "japanese_mfa", "japanese_mfa"),
 }
 TRANSCRIPT_EXTS = (".lab", ".txt")
+# 공백을 전부 빼고 MFA 에 넘기는 언어. MFA 3.4 의 일본어 분절기(Sudachi)는 공백을 "空白" 형태소로 읽어 발음 キゴウ(기호)를
+# 붙이고 앞뒤 단어와 `_` 로 묶는다 ("いようと わたし" -> "と_わたし" = トキゴウワタシ). 줄바꿈 · 띄어쓰기마다 없는 음소가
+# 들어가 정렬이 실패한다 (실측 2026-10-22: 45.8 s 발화 · 공백 6곳 -> NoAlignmentsError, 공백 제거 -> 성공).
+# 일본어는 띄어쓰기가 없어 공백을 빼도 뜻이 바뀌지 않는다. 한국어 · 영어는 공백이 단어 경계라 그대로 둔다.
+NO_SPACE_LANGUAGES = ("Japanese",)
 ALIGN_TIMEOUT_SEC = 1800
 
 
@@ -151,6 +157,16 @@ def read_transcript(path):
     return text
 
 
+def normalize_transcript(text, language):
+    """MFA 에 넘길 대본. NO_SPACE_LANGUAGES(일본어)는 공백 · 줄바꿈을 전부 없앤다, 다른 언어는 그대로.
+
+    json 의 correction.transcript 에는 원문(read_transcript 결과)을 그대로 쓴다 - 여기 결과는 정렬에만 쓴다.
+    """
+    if language in NO_SPACE_LANGUAGES:
+        return re.sub(r"\s+", "", text)
+    return text
+
+
 # ------------------------------------------------------------------ 정렬
 
 class AlignResult(object):
@@ -196,7 +212,7 @@ def align(inst, language, items, log=None, keep_dir=None):
             mono = data.reshape(len(data), -1).mean(axis=1).round().astype(np.int16)
             wavfile.write(os.path.join(corpus, name + ".wav"), rate, mono)
             with open(os.path.join(corpus, name + ".lab"), "w", encoding="utf-8") as f:
-                f.write(text + "\n")
+                f.write(normalize_transcript(text, language) + "\n")
 
         g2p_path = os.path.join(inst.models, "pretrained_models", "g2p", g2p + ".zip")
         cmd = [inst.exe, "align", corpus, dictionary, acoustic, out_dir,

@@ -1,6 +1,6 @@
 # 설치 · VisemeNet Converter 사용 안내
 
-> **작성** 2026-10-19 · **갱신** 2026-10-22 (v01.03 Convert 진행 팝업 — §2 4번; v01.02 Windows 10 · Python 3.14 — §1 · §6.1 · §6.7) · 대상: `setup_env.bat` · `Run_VisemeNet_Converter.bat` ·
+> **작성** 2026-10-19 · **갱신** 2026-10-22 (v01.04 일본어 대본 공백 제거 — §6 E33 · 0080 §2; v01.03 Convert 진행 팝업 — §2 4번; v01.02 Windows 10 · Python 3.14 — §1 · §6.1 · §6.7) · 대상: `setup_env.bat` · `Run_VisemeNet_Converter.bat` ·
 > `setup_mfa.bat` · `tools/VisemeNet_Converter` v01.01
 > · 마야 쪽은 `Maya_Python/JUN_All/docs/A00540_JaliLipSync.md` · 계획 [0030](0030_tool_plan.md) · 대본 보정 계획 [0060](0060_transcript_mfa_plan.md)
 
@@ -297,7 +297,7 @@ setup_mfa.bat --force             환경만 다시 만든다 (Miniforge · 모�
 | E30 | `MFA not found` | `setup_mfa.bat` 실행, 또는 `MFA folder` 지정 |
 | E31 | `MFA model missing for <언어>` | `setup_mfa.bat` 다시 실행 (빠진 모델만 받는다) |
 | E32 | `transcript is empty` / `not UTF-8` | 대본을 UTF-8 로 저장 (메모장: 다른 이름으로 저장 → 인코딩 UTF-8) |
-| E33 | `MFA align failed` / `did not finish` | MFA 자체가 실패 — 로그의 `detail` |
+| E33 | `MFA align failed` / `did not finish` | MFA 자체가 실패 — 로그의 `detail`. `NoAlignmentsError`(정렬 경로를 못 찾음)면 대본이 음성과 맞는지 · 언어가 맞는지 · 발화가 너무 길지 않은지(한 파일 30 s 이상이면 나누기) 확인. 일본어 대본의 공백 · 줄바꿈은 v01.04 부터 변환기가 빼고 넘긴다([0080 §2](0080_transcript_correction_usage.md)) |
 | E34 | `output would overwrite the transcript` | §6.2 |
 | W10 | `alignment failed - audio only` | 그 파일만 오디오로. 대본이 음성과 맞는지 확인 |
 | W11 | `N word(s) not in the dictionary` | 그 단어 구간은 VisemeNet 값 그대로 |
@@ -330,7 +330,7 @@ setup_mfa.bat --force             환경만 다시 만든다 (Miniforge · 모�
 | `setup_env.bat --yes --nopause` (오염된 채 호출) | `.bat` 가 변수를 비우므로 3.14 는 "not supported" 로 지나치고 `.python\` 의 3.11 → `.venv` 재사용 → 패키지 OK → 자가 검사 `(364, 22)` → **`SETUP OK`** |
 | `setup_mfa.bat <95자 경로> --nopause` | 설치 전에 `[ERROR] the folder path is 95 characters - at most 80 (Windows 260-character path limit), e.g. C:\mfa` 로 중단, 종료 코드 1 |
 | `Run_VisemeNet_Converter.bat` 의 사전 점검 줄(변수를 비운 뒤 `.venv` 로 `import PySide6`) | OK, `startup_error.log` 없음. 창을 띄우는 실행 자체는 10-20 에 같은 조건으로 종료 코드 0 확인 |
-| 변환기 시험 5종 — `.bat` 처럼 Python 변수만 비우고 `CONDA_*` 오염은 남긴 채 `.venv` 로 | `make_bad_wavs` 13 · `test_core` 17 · `test_ui` 16 · `test_merge` 41 · `test_align` 16(실제 MFA 정렬) 전부 `RESULT OK` |
+| 변환기 시험 5종 — `.bat` 처럼 Python 변수만 비우고 `CONDA_*` 오염은 남긴 채 `.venv` 로 | `make_bad_wavs` 13 · `test_core` 17 · `test_ui` 16 · `test_merge` 41 · `test_align` 18(실제 MFA 정렬) 전부 `RESULT OK` |
 
 - `test_merge` 의 새 항목 2개: `aligner.MfaInstall.environ()` 이 `PYTHONHOME` · `PYTHONPATH` · `CONDA_DEFAULT_ENV` 를 빼고 `PYTHONNOUSERSITE=1` · `MFA_ROOT_DIR` 를 넣는지.
 - **미확인**: 실제 Windows 10 PC, 실제 Python 설치 관리자의 `py`(가짜로 대신했다), 화면에 뜬 창. 그 PC 에서 문제가 나면

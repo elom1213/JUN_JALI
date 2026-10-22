@@ -21,7 +21,11 @@
 #        batch ends (Checking files / Loading model / Aligning transcripts / Converting, weighted by the
 #        expected time, per-file steps weighted by audio length, smooth fill between reports, elapsed
 #        time, Stop button = stop after the current file). Closes at 100 %, or at once on stop / error.
+# 01.04  Japanese transcripts: all whitespace (line breaks, spaces) is removed before MFA. MFA's Japanese
+#        tokenizer (Sudachi) reads a space as a symbol morpheme pronounced キゴウ and glues it to the
+#        neighbouring words (と_わたし), so every line break added phantom phones and a 45 s line failed
+#        with NoAlignmentsError (E33). English / Korean unchanged.
 
 APP_NAME = "VisemeNet Converter"
-VERSION = "01.03"
+VERSION = "01.04"
 LAST_UPDATE = "2026-10-22"

@@ -31,6 +31,13 @@ def main(work):
     logs = []
     log = lambda lv, m: logs.append((lv, m))   # noqa: E731
 
+    # 0) 언어별 대본 정규화 (MFA 없이) - 일본어는 공백 · 줄바꿈 제거, 영어 · 한국어는 그대로
+    ja = aligner.normalize_transcript(" ".join("パエトーン様、あなたが\n思い浮かべる そんな存在に。".split()), "Japanese")
+    check("Japanese transcript: whitespace removed before MFA", ja == "パエトーン様、あなたが思い浮かべるそんな存在に。")
+    check("English / Korean transcripts unchanged",
+          aligner.normalize_transcript("This coffee sucks", "English") == "This coffee sucks"
+          and aligner.normalize_transcript("파에톤 님이 어디로", "Korean") == "파에톤 님이 어디로")
+
     inst = aligner.find_install(ROOT)
     check("MFA install found (mfa_path.local.txt)", inst is not None)
     if inst is None:
