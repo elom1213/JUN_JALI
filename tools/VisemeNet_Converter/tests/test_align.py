@@ -17,6 +17,65 @@ from tools.VisemeNet_Converter.app.core import aligner, converter, viseme_merge 
 warnings.simplefilter("ignore")
 results = []
 
+# 합성 TextGrid (MFA 없이 W12 검사) - words: (무음) high <unk> f / phones: sil h aj(2.27 s) spn f
+_FAKE_TG = '''File type = "ooTextFile"
+Object class = "TextGrid"
+
+xmin = 0
+xmax = 4.1
+tiers? <exists>
+size = 2
+item []:
+    item [1]:
+        class = "IntervalTier"
+        name = "words"
+        xmin = 0
+        xmax = 4.1
+        intervals: size = 4
+        intervals [1]:
+            xmin = 0
+            xmax = 1.0
+            text = ""
+        intervals [2]:
+            xmin = 1.0
+            xmax = 3.3
+            text = "high"
+        intervals [3]:
+            xmin = 3.3
+            xmax = 4.0
+            text = "<unk>"
+        intervals [4]:
+            xmin = 4.0
+            xmax = 4.1
+            text = "f"
+    item [2]:
+        class = "IntervalTier"
+        name = "phones"
+        xmin = 0
+        xmax = 4.1
+        intervals: size = 5
+        intervals [1]:
+            xmin = 0
+            xmax = 1.0
+            text = ""
+        intervals [2]:
+            xmin = 1.0
+            xmax = 1.03
+            text = "h"
+        intervals [3]:
+            xmin = 1.03
+            xmax = 3.3
+            text = "aj"
+        intervals [4]:
+            xmin = 3.3
+            xmax = 4.0
+            text = "spn"
+        intervals [5]:
+            xmin = 4.0
+            xmax = 4.1
+            text = "f"
+'''
+
 
 def check(name, cond):
     results.append(bool(cond))
@@ -37,6 +96,22 @@ def main(work):
     check("English / Korean transcripts unchanged",
           aligner.normalize_transcript("This coffee sucks", "English") == "This coffee sucks"
           and aligner.normalize_transcript("파에톤 님이 어디로", "Korean") == "파에톤 님이 어디로")
+
+    # 0b) 긴 음소 · W12 (MFA 없이) - 무음 1.0 s 와 spn 0.7 s 는 빼고, 2.27 s 의 aj 만 잡는다
+    tg = os.path.join(work, "fake.TextGrid")
+    with open(tg, "w", encoding="utf-8") as f:
+        f.write(_FAKE_TG)
+    fake = aligner.AlignResult("fake.wav", tg)
+    check("AlignResult: parsed, wide_beam defaults to False", fake.ok and fake.wide_beam is False)
+    check("long_phones: speech phones >= 0.5 s only (silence / spn skipped)",
+          [(round(s, 2), round(e, 2), l) for s, e, l in fake.long_phones()] == [(1.03, 3.3, "aj")])
+    check("short threshold catches h / f too", len(fake.long_phones(0.02)) == 3)
+    msg = converter.w12_text(fake)
+    check("W12 text: time range + phone, no wide-beam part",
+          "phone(s) longer than 0.5 s at 1.0-3.3 s (aj)" in msg and "wide beam" not in msg)
+    fake.wide_beam = True
+    check("W12 text: wide beam first, then long phones",
+          converter.w12_text(fake).startswith("aligned only with a wide beam (100 / 400); phone(s) longer"))
 
     inst = aligner.find_install(ROOT)
     check("MFA install found (mfa_path.local.txt)", inst is not None)
@@ -73,11 +148,15 @@ def main(work):
     check("one MFA run for the batch", sum(m.startswith("MFA align:") for _, m in logs) == 1)
     check("file without transcript -> audio only",
           any("no_transcript.wav" in m and "audio only" in m for lv, m in logs if lv == "OK"))
+    check("matching transcripts: no wide-beam retry, no W12",
+          not any(m.startswith("MFA found no alignment") for _, m in logs)
+          and not any(" W12 " in m for lv, m in logs if lv == "WARN"))
 
     meta = json.load(open(os.path.join(out_dir, "coffee_xxxx.visemenet.json"), encoding="utf-8"))
     corr = meta.get("correction", {})
     check("json: correction info", corr.get("language") == "English" and corr.get("transcript") == "This coffee sucks"
           and corr.get("phone_segments", 0) > 5)
+    check("json: wide_beam False, long_phones empty", corr.get("wide_beam") is False and corr.get("long_phones") == [])
     ph = json.load(open(os.path.join(out_dir, "coffee_xxxx.phones.json"), encoding="utf-8"))
     words = [w[2] for w in ph["words"] if w[2]]
     check("phones.json: words aligned", words == ["this", "coffee", "sucks"])

@@ -25,7 +25,13 @@
 #        tokenizer (Sudachi) reads a space as a symbol morpheme pronounced キゴウ and glues it to the
 #        neighbouring words (と_わたし), so every line break added phantom phones and a 45 s line failed
 #        with NoAlignmentsError (E33). English / Korean unchanged.
+# 01.05  Wide-beam retry + W12: files MFA cannot align with its default beam (10 / 40, NoAlignmentsError)
+#        are aligned once more with --beam 100 --retry_beam 400 (only those files, ~20 s extra). A file
+#        that needed the wide beam, or has a phone longer than 0.5 s, gets W12 with the time ranges to
+#        listen to - the transcript probably does not match the speech there (a 33 s English line with
+#        ~6 s of unscripted speech: vowels stretched to 2.3 s). Still corrected; json gets wide_beam /
+#        long_phones.
 
 APP_NAME = "VisemeNet Converter"
-VERSION = "01.04"
+VERSION = "01.05"
 LAST_UPDATE = "2026-10-22"

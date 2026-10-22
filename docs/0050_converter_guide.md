@@ -1,6 +1,6 @@
 # 설치 · VisemeNet Converter 사용 안내
 
-> **작성** 2026-10-19 · **갱신** 2026-10-22 (v01.04 일본어 대본 공백 제거 — §6 E33 · 0080 §2; v01.03 Convert 진행 팝업 — §2 4번; v01.02 Windows 10 · Python 3.14 — §1 · §6.1 · §6.7) · 대상: `setup_env.bat` · `Run_VisemeNet_Converter.bat` ·
+> **작성** 2026-10-19 · **갱신** 2026-10-22 (v01.05 넓은 beam 재시도 · W12 — §6.5 E33 · W12; v01.04 일본어 대본 공백 제거 — §6 E33 · 0080 §2; v01.03 Convert 진행 팝업 — §2 4번; v01.02 Windows 10 · Python 3.14 — §1 · §6.1 · §6.7) · 대상: `setup_env.bat` · `Run_VisemeNet_Converter.bat` ·
 > `setup_mfa.bat` · `tools/VisemeNet_Converter` v01.01
 > · 마야 쪽은 `Maya_Python/JUN_All/docs/A00540_JaliLipSync.md` · 계획 [0030](0030_tool_plan.md) · 대본 보정 계획 [0060](0060_transcript_mfa_plan.md)
 
@@ -297,10 +297,11 @@ setup_mfa.bat --force             환경만 다시 만든다 (Miniforge · 모�
 | E30 | `MFA not found` | `setup_mfa.bat` 실행, 또는 `MFA folder` 지정 |
 | E31 | `MFA model missing for <언어>` | `setup_mfa.bat` 다시 실행 (빠진 모델만 받는다) |
 | E32 | `transcript is empty` / `not UTF-8` | 대본을 UTF-8 로 저장 (메모장: 다른 이름으로 저장 → 인코딩 UTF-8) |
-| E33 | `MFA align failed` / `did not finish` | MFA 자체가 실패 — 로그의 `detail`. `NoAlignmentsError`(정렬 경로를 못 찾음)면 대본이 음성과 맞는지 · 언어가 맞는지 · 발화가 너무 길지 않은지(한 파일 30 s 이상이면 나누기) 확인. 일본어 대본의 공백 · 줄바꿈은 v01.04 부터 변환기가 빼고 넘긴다([0080 §2](0080_transcript_correction_usage.md)) |
+| E33 | `MFA align failed` / `did not finish` | MFA 자체가 실패 — 로그의 `detail`. `NoAlignmentsError`(기본 beam 10 / 40 으로 정렬 경로를 못 찾음)는 v01.05 부터 변환기가 **그 파일만 `--beam 100 --retry_beam 400` 으로 한 번 더** 돌린다(약 20 s 추가, 통과하면 W12). 그래도 실패하면 대본이 음성과 맞는지 · 언어가 맞는지 확인. 발화 길이는 원인이 아니다(36 s 한국어가 기본 beam 으로 정렬됐다). 일본어 대본의 공백 · 줄바꿈은 v01.04 부터 변환기가 빼고 넘긴다([0080 §2](0080_transcript_correction_usage.md)) |
 | E34 | `output would overwrite the transcript` | §6.2 |
 | W10 | `alignment failed - audio only` | 그 파일만 오디오로. 대본이 음성과 맞는지 확인 |
 | W11 | `N word(s) not in the dictionary` | 그 단어 구간은 VisemeNet 값 그대로 |
+| W12 | `aligned only with a wide beam (100 / 400)` · `phone(s) longer than 0.5 s at <a>-<b> s (<음소>)` | 정렬은 됐지만 **대본이 음성과 어긋난 파일** — 기본 beam 으로 못 찾았거나, 음소 하나가 0.5 s 이상(대본에 없는 소리를 인접 음소가 억지로 덮은 자리. 말하는 음소는 0.3 s 를 안 넘는다). 적힌 시각을 들어 보고 대본을 실제 발화대로 고쳐 다시 변환. 보정은 되지만 그 구간 비짐은 틀리다. json `correction.wide_beam` · `long_phones`. beam 은 탐색 가지치기 폭이라 넓혀도 정렬이 나빠지지 않는다 — 넓혀야만 되는 것 자체가 대본 불일치 신호 (2026-10-22 실측: 33 s 영어, 대본에 없는 말 약 6 s → 모음 하나 2.3 s) |
 | W13 | `phones not in ipa_to_jali.json` | 그 음소 구간은 그대로. 표에 추가할 후보 |
 
 ### 6.6 확인 기록 (2026-10-20, 영어 예시 2개 · angela 리그)

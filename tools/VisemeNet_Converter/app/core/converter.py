@@ -9,6 +9,7 @@
 # Correct 모드 (docs/0060_transcript_mfa_plan.md 안 B): wav 옆의 대본(<이름>.lab / .txt)을 MFA 로 정렬해
 #   음소 구간으로 비짐을 보정한다. 대본이 없는 파일은 오디오만으로 변환한다(대본은 선택 입력).
 #   정렬은 run_batch 시작 때 대본 있는 파일을 묶어 **한 번에** 한다. 정렬에 실패한 파일은 W10 경고 후 오디오만.
+#   넓은 beam 으로만 정렬됐거나 음소 하나가 너무 긴 파일은 W12 - 대본이 음성과 어긋난 자리를 시각으로 알린다 (보정은 한다).
 #
 # 원본 inference.py · postprocess.py 는 수정하지 않는다. 다만 predict_outputs 의 기본 경로가 현재 폴더 기준
 # 상대경로("./saved_params/...")라 절대경로를 넘긴다. TensorFlow import 는 느리므로(~5초) load() 에서만.
@@ -370,7 +371,26 @@ def _align_all(jobs, cfg, log, progress):
         if not res.ok:
             log("WARN", "{0}  W10 alignment failed - audio only (check that the transcript matches the speech)"
                 .format(os.path.basename(key)))
+        elif res.wide_beam or res.long_phones():
+            log("WARN", "{0}  W12 {1}".format(os.path.basename(key), w12_text(res)))
     return results, phone_map, mfa_name
+
+
+def w12_text(result):
+    """W12 메시지 - 정렬은 됐지만 대본이 음성과 어긋났을 가능성이 큰 파일. 넓은 beam 으로만 됐거나 음소 하나가 LONG_PHONE_SEC 이상.
+
+    들어 볼 시각을 적어 준다. 보정은 그대로 하므로 그 구간의 비짐은 믿을 수 없다 - 대본을 고쳐 다시 변환하는 것이 답.
+    """
+    parts = []
+    if result.wide_beam:
+        parts.append("aligned only with a wide beam ({0} / {1})".format(*aligner.WIDE_BEAM))
+    longs = result.long_phones()
+    if longs:
+        shown = ", ".join("{0:.1f}-{1:.1f} s ({2})".format(s, e, label) for s, e, label in longs[:6])
+        if len(longs) > 6:
+            shown += ", +{0} more".format(len(longs) - 6)
+        parts.append("phone(s) longer than {0:.1f} s at {1}".format(aligner.LONG_PHONE_SEC, shown))
+    return "; ".join(parts) + " - the transcript probably does not match the speech there (corrected anyway)"
 
 
 def _correction_info(job, result, report, cfg, mfa_name):
@@ -384,6 +404,8 @@ def _correction_info(job, result, report, cfg, mfa_name):
         "phone_segments": report["segments"],
         "unmapped_phones": report["unmapped"],
         "oov_words": [w[2] for w in result.words if w[2] in ("<unk>", "spn")],
+        "wide_beam": result.wide_beam,
+        "long_phones": [[round(s, 3), round(e, 3), label] for s, e, label in result.long_phones()],
         "params": report["params"],
     }
 

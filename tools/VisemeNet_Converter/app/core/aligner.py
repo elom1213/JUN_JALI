@@ -11,6 +11,7 @@
 # 정렬 한 번에 MFA 시작 비용(수십 초)이 들어서, 일괄 변환은 파일을 한 말뭉치(corpus)로 묶어 **한 번에** 정렬한다.
 # 입력 wav 는 모노 16-bit 사본을 임시 폴더에 만들어 넘긴다 - 원본은 건드리지 않는다.
 # 대본은 언어별로 정규화해서 넘긴다(normalize_transcript) - 일본어는 공백 · 줄바꿈을 전부 뺀다.
+# 기본 beam 으로 정렬 경로를 못 찾은 파일은 넓은 beam(WIDE_BEAM)으로 한 번 더 돌리고, 그 결과에 wide_beam 을 표시한다.
 
 import os
 import re
@@ -36,6 +37,15 @@ TRANSCRIPT_EXTS = (".lab", ".txt")
 # 일본어는 띄어쓰기가 없어 공백을 빼도 뜻이 바뀌지 않는다. 한국어 · 영어는 공백이 단어 경계라 그대로 둔다.
 NO_SPACE_LANGUAGES = ("Japanese",)
 ALIGN_TIMEOUT_SEC = 1800
+# MFA 기본 beam 은 10, 실패한 발화만 retry_beam 40 으로 다시 본다. beam 은 Viterbi 탐색의 가지치기 폭(최고 경로와의 로그 우도 차)이라
+# 넓혀도 결과가 나빠지지 않는다(같거나 더 좋은 경로). 그래도 기본값으로 못 찾는 발화는 대본에 없는 말이 있거나 대본이 음성과
+# 어긋난 경우가 대부분이라, 실패한 파일만 MFA 안내값(100 / 400)으로 한 번 더 돌리고 결과에 wide_beam 을 남겨 변환기가 W12 를 낸다.
+# 실측 2026-10-22: 33 s 영어 발화, 대본에 없는 말 약 6 s - 10 / 40 은 NoAlignmentsError, 40 / 160 은 11 단어를 1.1 s 에 눌러 넣음,
+# 100 / 400 은 통과하되 모음 하나가 2.3 s (대본에 없는 소리를 덮은 자리).
+WIDE_BEAM = (100, 400)
+# 이보다 긴 음소(무음 · spn 제외)는 대본에 없는 소리를 억지로 덮은 것으로 본다 - 말하는 음소는 보통 0.3 s 를 넘지 않는다.
+LONG_PHONE_SEC = 0.5
+SILENCE_LABELS = ("", "sil", "sp", "spn", "<eps>")
 
 
 class AlignError(Exception):
@@ -174,6 +184,7 @@ class AlignResult(object):
         self.key = key
         self.textgrid_path = textgrid_path
         self.tiers = parse_textgrid(textgrid_path) if textgrid_path else {}
+        self.wide_beam = False          # 기본 beam 으로 못 찾아 WIDE_BEAM 으로 정렬된 결과
 
     @property
     def ok(self):
@@ -187,46 +198,51 @@ class AlignResult(object):
     def words(self):
         return self.tiers.get("words", [])
 
+    def long_phones(self, min_sec=LONG_PHONE_SEC):
+        """min_sec 이상 이어지는 발음 음소 [(start, end, label)] - 무음 · spn 은 뺀다. 대본이 음성과 어긋난 자리의 표시."""
+        return [(s, e, label) for s, e, label in self.phones
+                if label not in SILENCE_LABELS and e - s >= min_sec]
+
 
 def align(inst, language, items, log=None, keep_dir=None):
     """여러 (key, wav, transcript_text) 를 한 번에 정렬한다.
+
+    기본 beam 으로 정렬이 안 된 파일(NoAlignmentsError, 또는 TextGrid 가 안 나온 파일)은 그 파일만 WIDE_BEAM 으로
+    한 번 더 돌린다. 그래서 된 결과는 wide_beam 이 True (변환기가 W12 로 알린다).
 
     Returns:
         {key: AlignResult} - 정렬에 실패한 파일은 AlignResult.ok 가 False (멈추지 않는다 - W10 으로 처리).
     Raises:
         AlignError(E33) - MFA 자체가 실행되지 않을 때.
     """
-    from scipy.io import wavfile
-
     acoustic, dictionary, g2p = LANGUAGES[language]
     work = tempfile.mkdtemp(prefix="jun_jali_mfa_")
     corpus = os.path.join(work, "corpus")
     out_dir = os.path.join(work, "aligned")
-    os.makedirs(corpus)
-    names = {}
     try:
-        for i, (key, wav, text) in enumerate(items):
-            name = "utt{0:03d}".format(i)               # ASCII 이름 - 한글 경로 · 같은 이름 문제를 피한다
-            names[key] = name
-            rate, data = wavfile.read(wav)              # wav_check 가 이미 16-bit PCM 임을 확인했다
-            mono = data.reshape(len(data), -1).mean(axis=1).round().astype(np.int16)
-            wavfile.write(os.path.join(corpus, name + ".wav"), rate, mono)
-            with open(os.path.join(corpus, name + ".lab"), "w", encoding="utf-8") as f:
-                f.write(normalize_transcript(text, language) + "\n")
-
+        names = _write_corpus(corpus, items, language)
         g2p_path = os.path.join(inst.models, "pretrained_models", "g2p", g2p + ".zip")
-        cmd = [inst.exe, "align", corpus, dictionary, acoustic, out_dir,
-               "--clean", "--single_speaker", "--final_clean", "--overwrite", "--g2p_model_path", g2p_path]
+        options = ["--clean", "--single_speaker", "--final_clean", "--overwrite", "--g2p_model_path", g2p_path]
         if log:
             log("INFO", "MFA align: {0} file(s), {1} ({2} / {3})".format(len(items), language, acoustic, dictionary))
-        t = time.time()
-        proc = _run(inst, cmd)
-        if log:
-            log("INFO", "MFA finished in {0:.1f} s".format(time.time() - t))
-        results = {}
-        for key, name in names.items():
-            tg = os.path.join(out_dir, name + ".TextGrid")
-            results[key] = AlignResult(key, tg if os.path.isfile(tg) else None)
+        proc = _run_align(inst, corpus, dictionary, acoustic, out_dir, options, log)
+        results = _collect(names, out_dir)
+
+        failed = [key for key, r in results.items() if not r.ok]
+        if failed and (proc.returncode == 0 or "NoAlignmentsError" in (proc.stdout or "")):
+            # 정렬 경로를 못 찾은 파일만 넓은 beam 으로 다시. MFA 임시 폴더는 말뭉치 폴더 이름을 따르므로 이름을 달리한다.
+            corpus_wide = os.path.join(work, "corpus_wide")
+            out_wide = os.path.join(work, "aligned_wide")
+            names_wide = _write_corpus(corpus_wide, [it for it in items if it[0] in failed], language)
+            if log:
+                log("INFO", "MFA found no alignment for {0} file(s) with the default beam (10 / 40) - "
+                            "retrying with --beam {1} --retry_beam {2}".format(len(failed), *WIDE_BEAM))
+            proc = _run_align(inst, corpus_wide, dictionary, acoustic, out_wide,
+                              options + ["--beam", str(WIDE_BEAM[0]), "--retry_beam", str(WIDE_BEAM[1])], log)
+            for key, r in _collect(names_wide, out_wide).items():
+                r.wide_beam = r.ok
+                results[key] = r
+
         if proc.returncode != 0 and not any(r.ok for r in results.values()):
             raise AlignError("E33", "MFA align failed (exit code {0})".format(proc.returncode),
                              detail=_tail(proc.stdout, 12))
@@ -236,6 +252,39 @@ def align(inst, language, items, log=None, keep_dir=None):
             shutil.rmtree(keep_dir, ignore_errors=True)
             shutil.copytree(work, keep_dir)
         shutil.rmtree(work, ignore_errors=True)
+
+
+def _write_corpus(corpus, items, language):
+    """(key, wav, text) 들을 MFA 말뭉치 폴더로 - 모노 16-bit wav 사본 + 정규화한 .lab. Returns {key: utt 이름}."""
+    from scipy.io import wavfile
+
+    os.makedirs(corpus)
+    names = {}
+    for i, (key, wav, text) in enumerate(items):
+        name = "utt{0:03d}".format(i)                   # ASCII 이름 - 한글 경로 · 같은 이름 문제를 피한다
+        names[key] = name
+        rate, data = wavfile.read(wav)                  # wav_check 가 이미 16-bit PCM 임을 확인했다
+        mono = data.reshape(len(data), -1).mean(axis=1).round().astype(np.int16)
+        wavfile.write(os.path.join(corpus, name + ".wav"), rate, mono)
+        with open(os.path.join(corpus, name + ".lab"), "w", encoding="utf-8") as f:
+            f.write(normalize_transcript(text, language) + "\n")
+    return names
+
+
+def _run_align(inst, corpus, dictionary, acoustic, out_dir, options, log):
+    t = time.time()
+    proc = _run(inst, [inst.exe, "align", corpus, dictionary, acoustic, out_dir] + list(options))
+    if log:
+        log("INFO", "MFA finished in {0:.1f} s".format(time.time() - t))
+    return proc
+
+
+def _collect(names, out_dir):
+    results = {}
+    for key, name in names.items():
+        tg = os.path.join(out_dir, name + ".TextGrid")
+        results[key] = AlignResult(key, tg if os.path.isfile(tg) else None)
+    return results
 
 
 def version(inst):
