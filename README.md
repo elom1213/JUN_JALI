@@ -13,6 +13,7 @@
 | [docs/0060_transcript_mfa_plan.md](docs/0060_transcript_mfa_plan.md) | 개선 계획 — 대본 + Montreal Forced Aligner 로 비짐 보정 · 하이브리드 생성 (영 · 한 · 일) |
 | [docs/0070_advancedskeleton_lipsync_research.md](docs/0070_advancedskeleton_lipsync_research.md) | 조사 — AdvancedSkeleton 의 Audio2Face (NVIDIA → ARKit 52 리타깃) · Auto lipsync (MFA 1.1) 동작 과정과 0060 계획에 주는 의미 |
 | [docs/0080_transcript_correction_usage.md](docs/0080_transcript_correction_usage.md) | **사용법 — 대본으로 립싱크 보정** (v01.01): `setup_mfa.bat` → 대본 준비 → 변환기 Correct 모드 → Maya |
+| [docs/0090_jali_slider_ctl_plan.md](docs/0090_jali_slider_ctl_plan.md) | 제작 계획 — JALI 슬라이더 컨트롤러 리그 (`02_Cage_JALI/A0020`): angela 어트리뷰트 1:1 슬라이더 · `output_min/max` 리맵 · 더미 입력/출력 노드 |
 
 **빠른 시작**: ① `setup_env.bat` 더블클릭(한 번 — PC 에 Python 3.12 ~ 3.14 만 있으면 이 폴더 전용 Python 3.11 을 받아 쓴다) → ② `Run_VisemeNet_Converter.bat` 더블클릭 → wav 넣고 `Convert`
 → ③ 마야에서 `Maya_Python/JUN_All/tools/A00540_JaliLipSync/__dragDrop_A00540.py` 를 드롭해 셸프 툴로 리그에 키.
