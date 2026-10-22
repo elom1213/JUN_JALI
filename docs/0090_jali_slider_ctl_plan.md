@@ -3,8 +3,9 @@
 > **작성** 2026-10-22 · 상태: **S4 완료 — 파일 생성 · 자동 검증 301 항목 통과 (2026-10-22), S5 사용자 GUI 확인 대기** · 대상 Maya 2024 (mayapy 로 생성 · 검증)
 > 결과물: `C:\Users\USER\Desktop\JP\0035_maya_src_rig\02_Cage_JALI\A0020_jali_slider_ctl.ma` (배치 미리보기 `.ref/A0020_layout_preview.png`)
 > · **direct 버전** `A0020_jali_slider_ctl_direct.ma` (2026-10-22, §0-A C8 — 키가 컨트롤러 ty 에 직접 붙는 버전)
-> 생성 · 검증 스크립트: `examples/build_jali_slider_ctl.py` (`mayapy build_jali_slider_ctl.py [--direct] <out.ma>` / `--verify [--direct] <out.ma>`,
-> direct 파일 베이크 = `bake_ctl_keys()`)
+> · **direct + ARKit 버전** `A0030_jali_slider_ctl_direct_arkit.ma` (2026-10-22, §0-A C9 — `ARKIT_OUT` 52 를 같은 파일에서 출력)
+> 생성 · 검증 스크립트: `examples/build_jali_slider_ctl.py` (`mayapy build_jali_slider_ctl.py [--direct] [--arkit] <out.ma>` /
+> `--verify [--direct] [--arkit] <out.ma>`, direct 파일 베이크 = `bake_ctl_keys()`)
 > 참고: 같은 폴더 `.ref/ref_01.png`(모양) · `0001_PJ_portfolio/0040_JULI/scenes/angela_JALI.ma`(어트리뷰트) ·
 > 같은 폴더 `A0010_jali_arkit_mapping_ctl.ma`(지금 쓰는 JaLi 2D 박스 + JALI_IN → ARKIT_OUT 노드망, `examples/build_jali_arkit_node.py` 가 만든 것)
 
@@ -23,6 +24,7 @@
 | Q7 | 기본 `output_max` | angela 범위 (12 · YA_PEDAL 15 · Jaw/Lip 15). 10 등으로 내리는 것은 마야에서 사용자가 직접(2026-10-22) |
 | C7 | JaLi 기본값 자리 (2026-10-22, A00540 v01.01 계획) | **`CNT_JaLi` 휴식 위치 0, `DUMMY_IN_JALI.Jaw/Lip` 기본값 0.6** → 출력 기본 9 그대로, 데이터 키가 기본값을 덮으므로 더해지지 않는다. 검증 305 항목 |
 | C8 | **direct 버전** (2026-10-22 요청) — "drv 가 키를 받는 버전이 아니라 컨트롤러 ty 에 키가 직접 붙는 버전" | `A0020_jali_slider_ctl_direct.ma` 를 **같은 스크립트 `--direct`** 로 추가 생성. §6.4 D3 의 **대안(`CTL.ty` 직결)** 을 채택: `_drv` · `pma_*` 없음, `DUMMY_IN.X → CTL_<tag>.ty → rv → gs → DUMMY_OUT` (JaLi 는 `DUMMY_IN_JALI.Jaw/Lip → CNT_JaLi.tx/ty`). 컨트롤러 ty 는 연결 상태라 손으로는 못 만지고, **`bake_ctl_keys()`**(DUMMY_IN 의 animCurve 를 통째로 복사, 없으면 `bakeResults`) 또는 Maya *Bake Simulation* 으로 베이크하면 **키가 컨트롤러에 그대로 남고** DUMMY_OUT 은 컨트롤러를 따라간다. 검증 `--verify --direct` **473 항목 통과**(T7 베이크 포함). 원본 A0020 은 그대로(305 통과 재확인) |
+| C9 | **direct + ARKit 버전** (2026-10-22 요청) — "A0010 을 거치지 않고 같은 파일이 JALI 규칙 값과 ARKit 52 값을 둘 다 출력" | `A0030_jali_slider_ctl_direct_arkit.ma` = `--direct --arkit`. `JALI_DUMMY_GRP` 아래 **`ARKIT_OUT`**(ARKit 52, 0~1) 을 더하고 `build_jali_arkit_node.build(src_plugs=DUMMY_OUT_*, out_node=ARKIT_OUT, jali_unit 9, phoneme_unit 10)` 로 A0010 과 **같은 노드망**(`bw_* 15 · md_* 17 · cl_* 15`) 을 **`DUMMY_OUT_JALI/PHONEMES/COARTIC`(angela 단위)** 에 직접 붙였다. `JALI_IN` · `JALI_ARKit_GRP` 는 없다. 그래서 `output_min/max` · `global_scale` 이 ARKit 쪽에도 먹고, 컨트롤러를 베이크한 뒤에도 `ARKIT_OUT` 이 컨트롤러 키를 따라간다. 매핑 가중치는 0040 §3 그대로(`bw_<target>.weight[i]`, 아바타에 맞춰 노드에서 수정). 검증 `--verify --direct --arkit` **495 항목 통과**(T8: 52 타겟 전부 A0010 식과 일치 · 축 배율 · global_scale · output_max · 페달 · 베이크 뒤 jawOpen). A0010 · A0020 · A0020_direct 는 그대로 |
 
 ## 0-B. 실측 결과 (2026-10-22, mayapy 2024)
 

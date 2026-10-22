@@ -26,10 +26,16 @@
 #   bake_ctl_keys() (또는 Maya Bake Simulation) 로 베이크하면 DUMMY_IN 의 키가 컨트롤러 ty 에 그대로 남는다
 #   → 베이크 뒤에는 컨트롤러 키를 직접 편집하고 DUMMY_OUT 은 컨트롤러를 따라간다.
 #
+# arkit 모드 (2026-10-22, --arkit) — "ARKit 52 로도 출력되는 노드"
+#   JALI_DUMMY_GRP 아래에 ARKIT_OUT (ARKit 52 어트리뷰트, 0~1) 을 하나 더 만들고, A0010 과 같은 노드망
+#   (build_jali_arkit_node.build: bw_<target> → md_<target> → cl_<target>) 을 DUMMY_OUT_JALI / _PHONEMES / _COARTIC
+#   (angela 단위: 음소 0~12 · Jaw Lip 0~15 기본 9) 에 직접 붙인다 → A0010 을 거칠 필요가 없다. 같은 파일이 JALI 규칙
+#   (DUMMY_OUT_*) 과 ARKit 52 (ARKIT_OUT) 둘 다로 출력된다. output_min/max · global_scale 은 ARKit 쪽에도 그대로 먹는다.
+#
 # 사용
-#   Maya Script Editor:  import build_jali_slider_ctl as b; b.build()           (b.build(direct=True))
-#   배치:    mayapy build_jali_slider_ctl.py [--direct] [out.ma]
-#   검증:    mayapy build_jali_slider_ctl.py --verify [--direct] <out.ma>      (저장한 파일을 다시 열어 T1~T7)
+#   Maya Script Editor:  import build_jali_slider_ctl as b; b.build()           (b.build(direct=True, arkit=True))
+#   배치:    mayapy build_jali_slider_ctl.py [--direct] [--arkit] [out.ma]
+#   검증:    mayapy build_jali_slider_ctl.py --verify [--direct] [--arkit] <out.ma>   (저장한 파일을 다시 열어 T1~T8)
 #   베이크:  Maya 에서  import build_jali_slider_ctl as b; b.bake_ctl_keys()    (direct 파일, 선택 없으면 전부)
 
 import os
@@ -279,8 +285,24 @@ def _dummy(name, attrs, parent, limited, defaults=None):
 # ---------------------------------------------------------------------------
 # 전체
 # ---------------------------------------------------------------------------
-def build(direct=False):
-    """direct=True: _drv / pma 없이 DUMMY_IN → 컨트롤러 직결 (헤더 'direct 모드')."""
+def build_arkit_out(dummy_grp, dout_jali, dout_ph, dout_co):
+    """ARKIT_OUT (ARKit 52) 을 dummy_grp 아래에 만들고 DUMMY_OUT_* 에 A0010 노드망을 붙인다 (헤더 'arkit 모드').
+
+    DUMMY_OUT_* 는 angela 단위(음소 실측 10, Jaw/Lip 실측 9)라 build_jali_arkit_node 의 기본 단위를 그대로 쓴다.
+    global_scale 은 DUMMY_OUT 에 이미 곱해져 있으므로 weight_plug 는 주지 않는다.
+    """
+    import build_jali_arkit_node as J
+    out = _dummy('ARKIT_OUT', J.ARKIT_52, dummy_grp, True)
+    src = {'Jaw': dout_jali + '.Jaw', 'Lip': dout_jali + '.Lip'}
+    src.update({a: '%s.%s' % (dout_ph, a) for a in J.PHONEMES})
+    src.update({a: '%s.%s' % (dout_co, a) for a in J.PEDALS})
+    J.build(src_plugs=src, out_node=out, jali_unit=J.MEASURED_JALI, phoneme_unit=J.MEASURED_PHONEME)
+    return out
+
+
+def build(direct=False, arkit=False):
+    """direct=True: _drv / pma 없이 DUMMY_IN → 컨트롤러 직결 (헤더 'direct 모드').
+    arkit=True : ARKIT_OUT + JALI → ARKit 52 노드망을 더한다 (헤더 'arkit 모드')."""
     root = cmds.group(em=True, n=ROOT)
     cmds.addAttr(root, ln=GLOBAL_SCALE, at='double', min=0.0, dv=1.0, k=True)
     scale_plug = '%s.%s' % (root, GLOBAL_SCALE)
@@ -321,14 +343,16 @@ def build(direct=False):
                      '%s.%s' % (din_co, attr), '%s.%s' % (dout_co, attr), scale_plug, direct)
 
     build_jali_box(ctl_grp, din_jali, dout_jali, direct)
+    if arkit:
+        build_arkit_out(dummy_grp, dout_jali, dout_ph, dout_co)
     cmds.select(cl=True)
     return root
 
 
-def build_file(out_path, direct=False):
+def build_file(out_path, direct=False, arkit=False):
     cmds.file(new=True, f=True)
     cmds.currentUnit(l='centimeter', a='degree', t='film')
-    build(direct)
+    build(direct, arkit)
     out_dir = os.path.dirname(out_path)
     if out_dir and not os.path.isdir(out_dir):
         os.makedirs(out_dir)
@@ -447,6 +471,14 @@ def verify(path, direct=False):
 
     if direct:
         return _verify_direct(ok, user_attrs, world_y, src_of, checks, fails)
+    result = _verify_drv(ok, user_attrs, world_y, checks, fails)
+    if cmds.objExists('ARKIT_OUT'):
+        _verify_arkit(ok, src_of)
+    print('verify: %d checks, %d failed' % (checks[0], len(fails)))
+    return not fails
+
+
+def _verify_drv(ok, user_attrs, world_y, checks, fails):
 
     # T1 어트리뷰트 집합 == angela
     ph = _angela_attrs('CNT_PHONEMES')
@@ -518,9 +550,96 @@ def verify(path, direct=False):
     ok(abs(cmds.getAttr('DUMMY_OUT_JALI.Jaw') - 15) < 1e-6, 'JaLi Jaw dummy 1 -> 15 (nothing added)')
     cmds.setAttr('DUMMY_IN_JALI.Jaw', JALI_DEFAULT)
     ok(cmds.transformLimits('CNT_JaLi', q=True, tx=True) == [0.0, 1.0], 'JaLi tx limits')
-
-    print('verify: %d checks, %d failed' % (checks[0], len(fails)))
     return not fails
+
+
+def _verify_arkit(ok, src_of):
+    """T8 — ARKIT_OUT 이 DUMMY_OUT_* 에서 A0010 과 같은 식으로 계산되는지. 입력은 DUMMY_IN 으로 넣는다 (양쪽 모드 공통).
+    들어올 때 DUMMY_IN 은 전부 0, Jaw/Lip 0.6 이어야 하고 나갈 때도 그 상태로 돌려 둔다."""
+    import build_jali_arkit_node as J
+    eps = 1e-5
+
+    def expected(target):
+        """지금의 DUMMY_OUT 값으로 A0010 식 계산: clamp01( sum(out * w / 10) * (Jaw|Lip) / 9 )."""
+        channel = target
+        for ch in J.MAPPING:
+            if target in J._targets(ch):
+                channel = ch
+                break
+        if channel not in J.MAPPING:
+            return 0.0
+        hub = {'Jaw': 'DUMMY_OUT_JALI', 'Lip': 'DUMMY_OUT_JALI'}
+        hub.update({a: 'DUMMY_OUT_PHONEMES' for a in J.PHONEMES})
+        hub.update({a: 'DUMMY_OUT_COARTIC' for a in J.PEDALS})
+        total = sum(cmds.getAttr('%s.%s' % (hub[a], a)) * w / J.MEASURED_PHONEME for a, w in J.MAPPING[channel].items())
+        axis = 'Jaw' if channel in J.JAW_CHANNELS else 'Lip'
+        v = total * cmds.getAttr('DUMMY_OUT_JALI.' + axis) / J.MEASURED_JALI
+        return max(0.0, min(1.0, v))
+
+    def check_all(label):
+        bad = [(t, cmds.getAttr('ARKIT_OUT.' + t), expected(t)) for t in J.ARKIT_52
+               if abs(cmds.getAttr('ARKIT_OUT.' + t) - expected(t)) > eps]
+        ok(not bad, 'T8 %s: 52 targets == A0010 formula (bad %s)' % (label, bad[:3]))
+
+    # 구조
+    ok(cmds.listRelatives('ARKIT_OUT', p=True)[0] == DUMMY_GRP, 'T8 ARKIT_OUT under ' + DUMMY_GRP)
+    ok(cmds.listAttr('ARKIT_OUT', ud=True) == J.ARKIT_52, 'T8 ARKIT_OUT has the 52 ARKit attrs in order')
+    ok(all(cmds.attributeQuery(t, n='ARKIT_OUT', min=True) == [0.0] and cmds.attributeQuery(t, n='ARKIT_OUT', max=True) == [1.0]
+           for t in J.ARKIT_52), 'T8 ARKit attrs 0~1')
+    ok(not cmds.objExists('JALI_IN') and not cmds.objExists('JALI_ARKit_GRP'), 'T8 no JALI_IN / JALI_ARKit_GRP (fed by DUMMY_OUT)')
+    mapped = set(t for ch in J.MAPPING for t in J._targets(ch))
+    ok(all(src_of('ARKIT_OUT.' + t) is not None for t in mapped), 'T8 mapped targets connected (%d)' % len(mapped))
+    ok(all(src_of('ARKIT_OUT.' + t) is None for t in J.ARKIT_52 if t not in mapped), 'T8 unmapped targets (eyes, brows ...) stay free')
+    ok(src_of('md_scaleJaw.input1') == 'DUMMY_OUT_JALI.Jaw' and src_of('md_scaleLip.input1') == 'DUMMY_OUT_JALI.Lip', 'T8 axis scale <- DUMMY_OUT_JALI')
+    ok(src_of('bw_jawOpen.input[0]') == 'DUMMY_OUT_PHONEMES.AHH', 'T8 bw_jawOpen.input[0] <- DUMMY_OUT_PHONEMES.AHH')
+
+    # 휴식: 음소 0, Jaw/Lip 기본 9 → 52 전부 0
+    ok(all(abs(cmds.getAttr('ARKIT_OUT.' + t)) < eps for t in J.ARKIT_52), 'T8 rest -> all 0')
+    # AHH 0.5 → out 6 → jawOpen 0.6 · mouthLowerDown 0.204 (Lip 9 → 배율 1)
+    cmds.setAttr('DUMMY_IN_PHONEMES.AHH', 0.5)
+    ok(abs(cmds.getAttr('ARKIT_OUT.jawOpen') - 0.6) < eps, 'T8 AHH 0.5 -> jawOpen 0.6 (%s)' % cmds.getAttr('ARKIT_OUT.jawOpen'))
+    ok(abs(cmds.getAttr('ARKIT_OUT.mouthLowerDownLeft') - 0.204) < eps and abs(cmds.getAttr('ARKIT_OUT.mouthLowerDownRight') - 0.204) < eps,
+       'T8 AHH 0.5 -> mouthLowerDown L/R 0.204')
+    check_all('AHH 0.5')
+    # AHH 1 → 1.2 → 클램프 1
+    cmds.setAttr('DUMMY_IN_PHONEMES.AHH', 1.0)
+    ok(abs(cmds.getAttr('ARKIT_OUT.jawOpen') - 1.0) < eps, 'T8 AHH 1 -> jawOpen clamped 1')
+    # Jaw 축 0.3 (= 4.5) → jawOpen 만 절반, Lip 타겟은 그대로
+    cmds.setAttr('DUMMY_IN_PHONEMES.AHH', 0.5)
+    cmds.setAttr('DUMMY_IN_JALI.Jaw', 0.3)
+    ok(abs(cmds.getAttr('ARKIT_OUT.jawOpen') - 0.3) < eps and abs(cmds.getAttr('ARKIT_OUT.mouthLowerDownLeft') - 0.204) < eps,
+       'T8 Jaw 0.3 -> jawOpen 0.3, mouthLowerDown unchanged')
+    cmds.setAttr('DUMMY_IN_JALI.Jaw', JALI_DEFAULT)
+    cmds.setAttr('DUMMY_IN_JALI.Lip', 0.3)
+    ok(abs(cmds.getAttr('ARKIT_OUT.mouthLowerDownLeft') - 0.102) < eps and abs(cmds.getAttr('ARKIT_OUT.jawOpen') - 0.6) < eps,
+       'T8 Lip 0.3 -> mouthLowerDown 0.102, jawOpen unchanged')
+    cmds.setAttr('DUMMY_IN_JALI.Lip', JALI_DEFAULT)
+    # global_scale 0.5 → 음소 출력 절반 → jawOpen 0.3
+    cmds.setAttr(ROOT + '.' + GLOBAL_SCALE, 0.5)
+    ok(abs(cmds.getAttr('ARKIT_OUT.jawOpen') - 0.3) < eps, 'T8 global_scale 0.5 -> jawOpen 0.3')
+    cmds.setAttr(ROOT + '.' + GLOBAL_SCALE, 1.0)
+    # output_max 를 바꾸면 ARKit 도 따라간다 (AHH output_max 6 → out 3 → jawOpen 0.3)
+    cmds.setAttr('CTL_PH_AHH.output_max', 6.0)
+    ok(abs(cmds.getAttr('ARKIT_OUT.jawOpen') - 0.3) < eps, 'T8 output_max 6 -> jawOpen 0.3')
+    cmds.setAttr('CTL_PH_AHH.output_max', PHONEME_MAX)
+    cmds.setAttr('DUMMY_IN_PHONEMES.AHH', 0.0)
+    # COARTIC 페달 → mouthPucker / mouthDimple · mouthStretch · mouthSmile
+    cmds.setAttr('DUMMY_IN_COARTIC.WA_PEDAL', 1.0)
+    ok(abs(cmds.getAttr('ARKIT_OUT.mouthPucker') - 0.576) < eps, 'T8 WA_PEDAL 1 -> mouthPucker 0.576 (%s)' % cmds.getAttr('ARKIT_OUT.mouthPucker'))
+    cmds.setAttr('DUMMY_IN_COARTIC.WA_PEDAL', 0.0)
+    cmds.setAttr('DUMMY_IN_COARTIC.YA_PEDAL', 1.0)
+    ok(abs(cmds.getAttr('ARKIT_OUT.mouthDimpleLeft') - 0.405) < eps and abs(cmds.getAttr('ARKIT_OUT.mouthDimpleRight') - 0.405) < eps,
+       'T8 YA_PEDAL 1 -> out 15 (output_max 15) -> mouthDimple L/R 0.405 (%s)' % cmds.getAttr('ARKIT_OUT.mouthDimpleLeft'))
+    cmds.setAttr('DUMMY_IN_COARTIC.YA_PEDAL', 0.0)
+    # 섞인 입력에서 52 전부 식과 같다
+    mix = {'DUMMY_IN_PHONEMES.AAA': 0.4, 'DUMMY_IN_PHONEMES.UUU': 0.7, 'DUMMY_IN_PHONEMES.MBP': 0.2,
+           'DUMMY_IN_PHONEMES.SSH': 0.9, 'DUMMY_IN_COARTIC.WA_PEDAL': 0.3, 'DUMMY_IN_JALI.Jaw': 0.8, 'DUMMY_IN_JALI.Lip': 0.45}
+    for plug, v in mix.items():
+        cmds.setAttr(plug, v)
+    check_all('mixed')
+    for plug in mix:
+        cmds.setAttr(plug, JALI_DEFAULT if 'JALI' in plug else 0.0)
+    ok(all(abs(cmds.getAttr('ARKIT_OUT.' + t)) < eps for t in J.ARKIT_52), 'T8 back to rest -> all 0')
 
 
 def _verify_direct(ok, user_attrs, world_y, src_of, checks, fails):
@@ -600,6 +719,10 @@ def _verify_direct(ok, user_attrs, world_y, src_of, checks, fails):
     cmds.setAttr('DUMMY_IN_JALI.Jaw', JALI_DEFAULT)
     ok(cmds.transformLimits('CNT_JaLi', q=True, tx=True) == [0.0, 1.0], 'JaLi tx limits')
 
+    # T8 ARKit 출력 (--arkit 파일) — 베이크 전, 입력이 전부 휴식 상태일 때
+    if cmds.objExists('ARKIT_OUT'):
+        _verify_arkit(ok, src_of)
+
     # T7 베이크 — DUMMY_IN 의 키가 컨트롤러에 그대로 남고, 그 뒤 DUMMY_OUT 은 컨트롤러를 따라간다
     keys = [(1, 0.0), (12, 1.0), (24, 0.25)]
     for t, v in keys:
@@ -636,6 +759,12 @@ def _verify_direct(ok, user_attrs, world_y, src_of, checks, fails):
     ok(abs(cmds.getAttr('CTL_CO_GK.ty') - 0.3) < 1e-6, 'T7 bake mode value 0.3')
     # 아직 안 베이크된 컨트롤러는 그대로 연결돼 있다
     ok(src_of('CTL_PH_Eh.ty') == 'DUMMY_IN_PHONEMES.Eh', 'T7 untouched ctl still connected')
+    # 베이크 뒤에도 ARKIT_OUT 은 컨트롤러 키 → DUMMY_OUT 을 따라간다 (f12: AAA 0.5 → 6, Jaw 키 1 → 15)
+    if cmds.objExists('ARKIT_OUT'):
+        cmds.currentTime(12)
+        jaw_open = min(1.0, 6.0 * 0.67 / 10.0 * 15.0 / 9.0)
+        ok(abs(cmds.getAttr('ARKIT_OUT.jawOpen') - jaw_open) < 1e-5,
+           'T7 baked keys drive ARKIT_OUT.jawOpen %s (expect %s)' % (cmds.getAttr('ARKIT_OUT.jawOpen'), jaw_open))
 
     print('verify(direct): %d checks, %d failed' % (checks[0], len(fails)))
     return not fails
@@ -646,14 +775,17 @@ if __name__ == '__main__':
     maya.standalone.initialize(name='python')
     args = [a for a in sys.argv[1:]]
     direct = '--direct' in args
+    arkit = '--arkit' in args
     do_verify = '--verify' in args
     pos = [a for a in args if not a.startswith('--')]
+    here = os.path.dirname(os.path.abspath(__file__))
+    if here not in sys.path:                      # build_jali_arkit_node 를 같은 폴더에서 찾는다
+        sys.path.insert(0, here)
     if do_verify:
         result = verify(pos[0], direct=direct)
         maya.standalone.uninitialize()
         sys.exit(0 if result else 1)
-    here = os.path.dirname(os.path.abspath(__file__))
-    default_name = 'jali_slider_ctl_direct.ma' if direct else 'jali_slider_ctl.ma'
+    default_name = 'jali_slider_ctl%s%s.ma' % ('_direct' if direct else '', '_arkit' if arkit else '')
     out = pos[0] if pos else os.path.join(os.path.dirname(here), 'out', default_name)
-    print('saved:', build_file(out, direct=direct))
+    print('saved:', build_file(out, direct=direct, arkit=arkit))
     maya.standalone.uninitialize()
