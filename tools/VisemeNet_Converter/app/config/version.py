@@ -12,7 +12,12 @@
 #        attenuated, silence x0.2, 30 ms ramps); Jaw / Lip untouched. Writes <name>.phones.json.
 #        English / Korean / Japanese. New checks E30 - E34 (E34: never overwrite a transcript),
 #        warnings W10 / W11 / W13.
+# 01.02  Windows 10 / Python 3.14 PCs: MFA runs isolated from the PC's Python and conda variables
+#        (PYTHONHOME / PYTHONPATH / user site-packages / CONDA_*) - a Python 3.14 PYTHONHOME or
+#        PYTHONPATH made the tool's Python 3.11 load the 3.14 standard library and fail on its
+#        first import (numpy -> warnings -> _py_warnings: AttributeError). setup_mfa.bat: install
+#        folder at most 80 characters (260-character path limit), same isolation in all .bat files.
 
 APP_NAME = "VisemeNet Converter"
-VERSION = "01.01"
-LAST_UPDATE = "2026-10-20"
+VERSION = "01.02"
+LAST_UPDATE = "2026-10-22"

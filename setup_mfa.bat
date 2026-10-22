@@ -11,8 +11,9 @@ rem     <folder>\models\      MFA_ROOT_DIR - acoustic models, dictionaries, MFA 
 rem  Delete the folder to uninstall. The chosen folder is saved in mfa_path.local.txt
 rem  (gitignored) - the converter reads it.
 rem
-rem  1) choose the folder (argument / prompt / Enter = default). No spaces, ASCII only:
-rem     conda and Kaldi fail on such paths (e.g. a Korean Windows user name).
+rem  1) choose the folder (argument / prompt / Enter = default). No spaces, ASCII only, at most
+rem     80 characters: conda and Kaldi fail on such paths (e.g. a Korean Windows user name), and
+rem     Windows 10 limits full paths to 260 characters.
 rem  2) Miniforge (SHA-256 checked, silent "just me" install)
 rem  3) MFA environment - from mfa_env.lock.txt (exact versions of the first install) when
 rem     it exists, otherwise from the pinned package list below
@@ -27,6 +28,13 @@ rem ============================================================================
 setlocal EnableExtensions
 chcp 65001 >nul
 cd /d "%~dp0"
+rem Isolate from the PC's own Python / conda (e.g. Python 3.14 with PYTHONPATH set, another conda
+rem activated): their variables would leak into this tool's Python and break imports.
+set "PYTHONHOME="
+set "PYTHONPATH="
+set "PYTHONSTARTUP="
+set "PYTHONNOUSERSITE=1"
+for %%V in (CONDA_PREFIX CONDA_DEFAULT_ENV CONDA_SHLVL CONDA_EXE CONDA_PYTHON_EXE _CE_CONDA _CE_M) do set "%%V="
 
 set "LOG=%~dp0setup_mfa.log"
 set "LOCK=%~dp0mfa_env.lock.txt"
@@ -41,6 +49,9 @@ set "MFA_PKGS=montreal-forced-aligner=3.4.3 python=3.11 sudachipy sudachidict-co
 set "MODELS=english_mfa korean_mfa japanese_mfa"
 set "G2P_MODELS=english_us_mfa korean_mfa japanese_mfa"
 set "MIN_FREE_GB=10"
+rem Windows 10 default: 260-character path limit (LongPathsEnabled = 0). The deepest file in the
+rem install is ~175 characters below the folder -> the folder path itself must stay short.
+set "MAX_DIR_LEN=80"
 
 set "ARG_DIR="
 set "FORCE=0"
@@ -230,12 +241,14 @@ set "OKDIR="
 set "FREE_GB="
 set "JALI_DIR=%~1"
 set "JALI_MIN=%MIN_FREE_GB%"
+set "JALI_MAXLEN=%MAX_DIR_LEN%"
 set "JALI_RES=%TEMP%\jun_jali_mfa_dir.txt"
 rem (the PowerShell check writes one line to a file - braces / parentheses inside "for /f (...)" break cmd)
 powershell -NoProfile -Command ^
   "$p=$env:JALI_DIR.Trim().Trim([char]34); try { $f=[IO.Path]::GetFullPath($p).TrimEnd([char]92) } catch { 'BAD|not a valid path: ' + $p; exit };" ^
   "if ($f -notmatch '^[A-Za-z]:\\') { 'BAD|use a full path on a local drive, e.g. C:\mfa: ' + $f; exit };" ^
   "if ($f -notmatch '^[\x21-\x7E]+$') { 'BAD|the folder path must not contain spaces or non-ASCII characters: ' + $f; exit };" ^
+  "if ($f.Length -gt [int]$env:JALI_MAXLEN) { 'BAD|the folder path is ' + $f.Length + ' characters - at most ' + $env:JALI_MAXLEN + ' (Windows 260-character path limit), e.g. C:\mfa'; exit };" ^
   "$free=[math]::Floor(([IO.DriveInfo]::new($f.Substring(0,3))).AvailableFreeSpace/1GB);" ^
   "if ($free -lt [int]$env:JALI_MIN) { 'BAD|only ' + $free + ' GB free on ' + $f.Substring(0,2) + ' - need ' + $env:JALI_MIN + ' GB'; exit };" ^
   "'OK|' + $f + '|' + $free" > "%JALI_RES%" 2>> "%LOG%"

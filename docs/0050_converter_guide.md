@@ -1,6 +1,6 @@
 # 설치 · VisemeNet Converter 사용 안내
 
-> **작성** 2026-10-19 · **갱신** 2026-10-20 (v01.01 대본 보정 — §6) · 대상: `setup_env.bat` · `Run_VisemeNet_Converter.bat` ·
+> **작성** 2026-10-19 · **갱신** 2026-10-22 (v01.02 Windows 10 · Python 3.14 — §1 · §6.1 · §6.7) · 대상: `setup_env.bat` · `Run_VisemeNet_Converter.bat` ·
 > `setup_mfa.bat` · `tools/VisemeNet_Converter` v01.01
 > · 마야 쪽은 `Maya_Python/JUN_All/docs/A00540_JaliLipSync.md` · 계획 [0030](0030_tool_plan.md) · 대본 보정 계획 [0060](0060_transcript_mfa_plan.md)
 
@@ -178,7 +178,7 @@ inverted dropout 이라 이것이 곧 dropout 의 기댓값 추론이다.
 tools\VisemeNet_Converter\tests\make_bad_wavs.py <작업폴더>   검사 규칙 13개 (나쁜 wav 를 만들어 코드 확인)
 tools\VisemeNet_Converter\tests\test_core.py     <작업폴더>   일괄 변환 17개 (사전검사 중단 · 결정성 · Stop · E09/E11/E20/E21)
 tools\VisemeNet_Converter\tests\test_ui.py       <작업폴더>   오프스크린 UI 16개 (실제 Convert 경로 · 한글 경로 · Correct 모드 · 설정 복원)
-tools\VisemeNet_Converter\tests\test_merge.py    <작업폴더>   보정 · 매핑 · TextGrid · 대본 찾기 39개 (MFA 없이 합성 데이터, 사전 음소 전수 검사)
+tools\VisemeNet_Converter\tests\test_merge.py    <작업폴더>   보정 · 매핑 · TextGrid · 대본 찾기 · MFA 실행 환경 격리 41개 (MFA 없이 합성 데이터, 사전 음소 전수 검사)
 tools\VisemeNet_Converter\tests\test_align.py    <작업폴더>   Correct 모드 통합 16개 (실제 MFA — setup_mfa.bat 뒤)
 ```
 
@@ -188,6 +188,8 @@ tools\VisemeNet_Converter\tests\test_align.py    <작업폴더>   Correct 모드
 가짜 `python`(3.14)만 PATH 에 둔 채 `setup_env.bat --yes` → 3.14 감지 · 전용 Python 받기(SHA-256) · venv · 패키지 · 자가 검사 `SETUP OK`(87초, pip 캐시 있음),
 `.python\` 를 지우고 다시 → 다시 받아 `SETUP OK`, 재실행은 재사용. 그 `.venv` 로 변환기 검사 · UI 시험 통과. 이 PC 의 실제 3.11 로도 `SETUP OK`.
 실제 Windows 10 + Python 3.14 PC 에서의 확인은 사용자 몫.
+
+**확인 기록 (2026-10-22, v01.02)**: 오염된 `PYTHONHOME` · `PYTHONPATH` · `CONDA_*` 까지 넣은 전체 모사 — §6.7.
 
 **확인 기록 (2026-10-19, Windows 11)**: 위 시험 전부 통과 · `.venv` 없는 상태에서 `setup_env.bat` → `SETUP OK` 84초(pip 캐시 있음) ·
 재실행 8초 · PATH 에 파이썬이 없을 때 안내 후 종료 · `Run_VisemeNet_Converter.bat` → 시작 오류 없이 이벤트 루프 진입.
@@ -214,13 +216,15 @@ setup_mfa.bat --force             환경만 다시 만든다 (Miniforge · 모�
 
 | 단계 | 하는 일 |
 |------|--------|
-| 1/5 | 설치 폴더 결정 — 인자 → 질문 → Enter = 기본값(`<저장소>\.mfa`, 이미 설치했다면 그 폴더). **공백 · 한글이 없는 로컬 경로만** 받는다(conda · Kaldi 가 실패한다 — 한글 사용자 이름 아래 `C:\Users\홍길동\...` 도 안 된다). 여유 공간 10 GB 미만이면 중단 |
+| 1/5 | 설치 폴더 결정 — 인자 → 질문 → Enter = 기본값(`<저장소>\.mfa`, 이미 설치했다면 그 폴더). **공백 · 한글이 없고 80자 이하인 로컬 경로만** 받는다(conda · Kaldi 가 실패한다 — 한글 사용자 이름 아래 `C:\Users\홍길동\...` 도 안 된다. 80자: Windows 10 기본은 전체 경로 260자 제한이고, 설치 안 가장 깊은 파일이 폴더 아래 약 175자다). 여유 공간 10 GB 미만이면 중단 |
 | 2/5 | **Miniforge 26.7.2-0** 을 받아 **SHA-256 확인** 후 조용히 설치 — "just me", **PATH · 레지스트리 · 바로가기 변경 없음** |
 | 3/5 | MFA 환경 — 저장소의 **`mfa_env.lock.txt` 가 있으면 그 정확한 버전으로**(다른 PC 도 같은 환경), 없으면 고정 목록(`montreal-forced-aligner=3.4.3 python=3.11 sudachipy sudachidict-core`). 한국어 토크나이저 `python-mecab-ko` 는 pip(`requirements_mfa.txt`, 버전 고정) |
 | 4/5 | 모델 — 음향 모델 · 사전 `english_mfa` · `korean_mfa` · `japanese_mfa` + G2P(사전에 없는 단어의 발음) `english_us_mfa` · `korean_mfa` · `japanese_mfa` |
 | 5/5 | 자가 검사 — `test_audio\coffee_xxxx.wav` 를 실제로 정렬. 처음 설치면 `mfa_env.lock.txt` 를 만든다 |
 
 `MFA SETUP OK` 가 나오면 끝. 선택한 폴더는 `mfa_path.local.txt` (gitignore) 에 저장되고 변환기가 읽는다. 로그 `setup_mfa.log`.
+
+**PC 의 다른 Python · conda 와 격리** — `setup_env.bat` · `setup_mfa.bat` · `Run_VisemeNet_Converter.bat` 은 시작할 때 `PYTHONHOME` · `PYTHONPATH` · `PYTHONSTARTUP` 을 비우고 `PYTHONNOUSERSITE=1` 로 둔다(`setup_mfa` 는 `CONDA_PREFIX` 등 conda 변수도). 변환기가 MFA 를 부를 때도 같다. PC 에 Python 3.14 를 가리키는 `PYTHONHOME` / `PYTHONPATH` 가 걸려 있으면 이 툴의 3.11 파이썬(추론 `.venv` · 전용 `.python` · MFA)이 3.14 의 표준 라이브러리를 읽어 **첫 `import numpy` 에서 죽는다**(`warnings` → `_py_warnings.py`: `AttributeError: 'sys.flags' object has no attribute 'context_aware_warnings'` — 2026-10-22 실측, §6.7).
 
 설치 폴더 구조 — **폴더 하나만 지우면 제거된다**:
 
@@ -236,6 +240,7 @@ setup_mfa.bat --force             환경만 다시 만든다 (Miniforge · 모�
 | 실패 메시지 | 해결 |
 |------------|------|
 | `the folder path must not contain spaces or non-ASCII characters` | `C:\mfa` 처럼 공백 · 한글 없는 경로 |
+| `the folder path is N characters - at most 80` | `C:\mfa` 처럼 짧은 경로 (저장소가 깊은 폴더에 있으면 기본값 `<저장소>\.mfa` 도 걸린다) |
 | `only N GB free` | 다른 드라이브(`D:\mfa`) |
 | `Miniforge download failed` | 인터넷 · 프록시 확인 |
 | `Could not create the MFA environment` | 로그 끝 15줄이 나온다. `CondaHTTPError` · `SSL` 이면 네트워크 · 프록시 |
@@ -294,6 +299,7 @@ setup_mfa.bat --force             환경만 다시 만든다 (Miniforge · 모�
 
 ### 6.6 확인 기록 (2026-10-20, 영어 예시 2개 · angela 리그)
 
+- **Windows 10 + Python 3.14 모사** (§6.7): 통과.
 - **재현성**: 같은 PC 의 다른 폴더(`C:\jun_mfa_test`)에 `mfa_env.lock.txt` 로 새로 설치 → `MFA SETUP OK`, 패키지 230개가 잠금 파일과 **완전히 같다**, 한국어 토크나이저 · 자가 검사 정렬 통과. 실제 다른 PC 는 미확인.
 - MFA 경계는 10 ms 격자 — 100fps 행과 그대로 맞물린다.
 - 사전에 없는 `VizimNet` → G2P 가 `vʲ ɪ z ɪ m n ɛ t` 로 만들어 정렬.
@@ -301,3 +307,25 @@ setup_mfa.bat --force             환경만 다시 만든다 (Miniforge · 모�
   (평균 5.4 → 8.4). `coffee_xxxx` 의 `f` 는 0 → 8. 비교 장면: `out/m2/angela_JALI_<이름>_{audio,correct}.ma` (gitignore).
 - 대본 `visemenet_intro.txt` 의 `cures` 는 `c ʊ ə z` 로 정렬됐다 — 실제 발화가 *curves* 라면 v 가 빠진다(대본 확인 필요).
 - **눈으로 보는 확인(입술이 실제로 자연스럽게 닫히는가)은 아직** — 위 장면을 열어 재생해 볼 것. 보정값(0.6 · 0.8 · ×0.5)은 초안이다.
+
+### 6.7 확인 기록 (2026-10-22, Windows 10 + Python 3.14 PC 모사, v01.02)
+
+실제 Windows 10 PC 는 없어 이 PC(Windows 11)에서 **보고된 환경을 그대로 흉내 내어** 돌렸다.
+
+- PATH 에 **Python 3.14.9 만**(python.org NuGet 패키지, 시스템에 설치하지 않고 임시 폴더에 푼 것) + 가짜 `py` 런처 — `py -3.11` · `-3.10` · `-3.9` 는
+  보고와 같은 문구 `No runtime installed that matches 3.11. Try running "py install 3.11".` 를 내고 **종료 코드 0**, 그 외는 3.14 를 실행.
+  이 PC 의 실제 Python 3.11 과 `py.exe` 는 PATH 에서 뺐다.
+- 오염 변수: `PYTHONHOME` = 3.14 폴더, `PYTHONPATH` = 3.14 의 `Lib`, `PYTHONSTARTUP` = 없는 파일, `CONDA_PREFIX` · `CONDA_EXE` = 없는 경로,
+  `CONDA_DEFAULT_ENV=other`, `CONDA_SHLVL=1`.
+
+| 단계 | 결과 |
+|------|------|
+| 음성 대조 — 오염 변수를 **지우지 않고** `.venv` · `.python` · MFA 의 Python 3.11 을 실행 | 셋 다 시작은 되지만 3.14 의 `Lib` 를 읽는다(`os.__file__` 이 3.14 쪽). 첫 `import numpy` 에서 `warnings` → `_py_warnings.py` 의 `sys.flags.context_aware_warnings` 로 `AttributeError` — 자가 검사 · 변환기 · MFA 전부 못 돈다. `PYTHONHOME` 만, `PYTHONPATH` 만 걸어도 같다 |
+| `setup_env.bat --yes --nopause` (오염된 채 호출) | `.bat` 가 변수를 비우므로 3.14 는 "not supported" 로 지나치고 `.python\` 의 3.11 → `.venv` 재사용 → 패키지 OK → 자가 검사 `(364, 22)` → **`SETUP OK`** |
+| `setup_mfa.bat <95자 경로> --nopause` | 설치 전에 `[ERROR] the folder path is 95 characters - at most 80 (Windows 260-character path limit), e.g. C:\mfa` 로 중단, 종료 코드 1 |
+| `Run_VisemeNet_Converter.bat` 의 사전 점검 줄(변수를 비운 뒤 `.venv` 로 `import PySide6`) | OK, `startup_error.log` 없음. 창을 띄우는 실행 자체는 10-20 에 같은 조건으로 종료 코드 0 확인 |
+| 변환기 시험 5종 — `.bat` 처럼 Python 변수만 비우고 `CONDA_*` 오염은 남긴 채 `.venv` 로 | `make_bad_wavs` 13 · `test_core` 17 · `test_ui` 16 · `test_merge` 41 · `test_align` 16(실제 MFA 정렬) 전부 `RESULT OK` |
+
+- `test_merge` 의 새 항목 2개: `aligner.MfaInstall.environ()` 이 `PYTHONHOME` · `PYTHONPATH` · `CONDA_DEFAULT_ENV` 를 빼고 `PYTHONNOUSERSITE=1` · `MFA_ROOT_DIR` 를 넣는지.
+- **미확인**: 실제 Windows 10 PC, 실제 Python 설치 관리자의 `py`(가짜로 대신했다), 화면에 뜬 창. 그 PC 에서 문제가 나면
+  `setup_env.log` · `setup_mfa.log` · `tools\VisemeNet_Converter\data\startup_error.log` 를 보내 달라.

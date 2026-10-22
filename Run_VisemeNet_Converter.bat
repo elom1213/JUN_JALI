@@ -7,6 +7,12 @@ rem ============================================================================
 setlocal
 chcp 65001 >nul
 cd /d "%~dp0"
+rem Isolate from the PC's own Python / conda (e.g. Python 3.14 with PYTHONPATH set, another conda
+rem activated): their variables would leak into this tool's Python and break imports.
+set "PYTHONHOME="
+set "PYTHONPATH="
+set "PYTHONSTARTUP="
+set "PYTHONNOUSERSITE=1"
 if not exist ".venv\Scripts\pythonw.exe" (
     echo [ERROR] Environment not found. Double-click setup_env.bat first.
     pause

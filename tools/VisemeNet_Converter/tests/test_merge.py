@@ -209,6 +209,21 @@ def main(work):
     except aligner.AlignError as e:
         check("non-UTF-8 transcript -> E32", e.code == "E32")
 
+    # 5) MFA 실행 환경 - PC 의 다른 파이썬 · conda 변수가 새지 않는다 (Python 3.14 PYTHONHOME 등)
+    saved = {k: os.environ.get(k) for k in ("PYTHONHOME", "PYTHONPATH", "CONDA_DEFAULT_ENV", "PYTHONNOUSERSITE")}
+    os.environ.update({"PYTHONHOME": r"C:\Python314", "PYTHONPATH": r"C:\Python314\Lib", "CONDA_DEFAULT_ENV": "other"})
+    os.environ.pop("PYTHONNOUSERSITE", None)
+    env = aligner.MfaInstall(os.path.join(work, "mfa")).environ()
+    for k, v in saved.items():
+        if v is None:
+            os.environ.pop(k, None)
+        else:
+            os.environ[k] = v
+    check("MFA env: PYTHONHOME / PYTHONPATH / CONDA_DEFAULT_ENV removed",
+          not {"PYTHONHOME", "PYTHONPATH", "CONDA_DEFAULT_ENV"} & set(env))
+    check("MFA env: user site-packages off, MFA_ROOT_DIR set",
+          env.get("PYTHONNOUSERSITE") == "1" and env["MFA_ROOT_DIR"].endswith("models"))
+
     print("RESULT", "OK" if all(results) else "{0} FAILED".format(results.count(False)))
     return 0 if all(results) else 1
 

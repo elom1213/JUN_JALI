@@ -65,8 +65,10 @@ class MfaInstall(object):
         env["CONDA_PREFIX"] = self.env
         env["MFA_ROOT_DIR"] = self.models
         env["PYTHONIOENCODING"] = "utf-8"
-        # 추론 .venv 의 파이썬 설정이 MFA 의 파이썬으로 새지 않게
-        for key in ("PYTHONHOME", "PYTHONPATH", "VIRTUAL_ENV"):
+        env["PYTHONNOUSERSITE"] = "1"                   # %APPDATA%\Python\Python311 의 패키지가 섞이지 않게
+        # 추론 .venv · PC 의 다른 파이썬(예: PYTHONPATH 를 건 3.14) · 다른 conda 설정이 MFA 로 새지 않게
+        for key in ("PYTHONHOME", "PYTHONPATH", "PYTHONSTARTUP", "VIRTUAL_ENV", "CONDA_DEFAULT_ENV",
+                    "CONDA_SHLVL", "CONDA_EXE", "CONDA_PYTHON_EXE", "_CE_CONDA", "_CE_M"):
             env.pop(key, None)
         return env
 
