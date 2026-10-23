@@ -88,6 +88,16 @@ def main():
     ap.add_argument("--no-vad", action="store_true")
     ap.add_argument("--json", default="")
     a = ap.parse_args()
+    if a.device != "cpu":
+        sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", ".."))
+        try:
+            from tools.STT_Converter.app.core import device as _dev
+            forced = _dev.force_cpu_reason()
+        except Exception:
+            forced = ""
+        if forced:
+            print("[M0] CPU forced ({0}) - using --device cpu --compute int8".format(forced))
+            a.device, a.compute = "cpu", "int8"
 
     import ctranslate2
     from faster_whisper import WhisperModel

@@ -39,7 +39,11 @@ class FasterWhisperEngine(base.Engine):
         if self._model is not None:
             return
         from .. import device as device_mod
-        device_mod.add_nvidia_dlls()
+        if self.device != "cpu":
+            forced = device_mod.force_cpu_reason()
+            if forced:                                   # CUDA 금지 PC - 건드리지 않고 E44 -> converter 가 CPU 로 폴백(W21)
+                raise base.EngineError("E44", "CUDA is disabled on this PC ({0})".format(forced))
+            device_mod.add_nvidia_dlls()
         # Windows 는 심볼릭 링크를 못 써 HF 캐시가 파일을 복사한다 - 동작엔 문제 없으니 경고만 끈다 (M0-1 실측)
         os.environ.setdefault("HF_HUB_DISABLE_SYMLINKS_WARNING", "1")
         if self.cache_dir:
