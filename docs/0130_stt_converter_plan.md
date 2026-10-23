@@ -327,6 +327,57 @@ STT 결과는 자막용 표기(숫자 · 기호 · 영문 약어)다. MFA 사전
 
 ---
 
+## 12. 작업 재개 절차 — 컴퓨터가 꺼져도 이 문서만 보고 이어서 한다
+
+**원칙**: 단계 하나가 끝날 때마다 ① 코드 · 문서를 `dev` 브랜치에 **커밋**하고 ② 아래 §12-1 체크리스트의 그 줄을 `[x]` 로 바꿔 **같은 커밋에 넣는다** ③ 실측값은 §11 표에 바로 적는다.
+그래서 재개할 때는 `git log` 가 아니라 **이 문서의 체크리스트가 진실**이다(커밋 안 된 작업 트리 변경은 잃은 것으로 본다).
+
+### 12-1. 진행 상태 체크리스트
+
+- [x] 계획서 작성 · README 등록 (2026-10-23, `c044fea` · `6473649`)
+- [x] 브랜치 정리: `dev` = `main` fast-forward, 이후 모든 작업은 **`dev`** 에서 (2026-10-23)
+- [ ] **M0-1** faster-whisper + CUDA DLL 이 RTX 5070 에서 뜬다 (`.venv_stt`, float16)
+- [ ] **M0-2** `int8_float16` 가능 여부
+- [ ] **M0-3** 세 언어 CER (src_kr · src_jp · src_en_full vs 손 대본)
+- [ ] **M0-5** 정규화 → `.lab` → VisemeNet Converter Correct 모드 통과
+- [ ] **M0-6** 속도 · 모델 로드 시간
+- [ ] **M0-7** CPU int8 폴백
+- [ ] **M0-4** Qwen3-ASR 설치 가능성 (torch cu128 · sm_120) — 선택
+- [ ] **T1** `setup_stt.bat` · `requirements_stt.txt` · `Run_STT_Converter.bat` (+ M0-9 모사 `--no-system-python`)
+- [ ] **T2-a** `app/core/engines/` (base · faster_whisper_engine) + `device.py`
+- [ ] **T2-b** `app/core/normalize/` (base · english · korean · japanese) + `tests/test_normalize.py`
+- [ ] **T2-c** `app/core/{job,converter,output_writer,settings}.py` + `tests/test_core.py`
+- [ ] **T2-d** `app/ui/main_window.py` (+ progress_dialog 복제) + `launch.py` + `tests/test_ui.py`
+- [ ] **T2-e** 예시 3 언어 실제 변환 → `.lab` → MFA 통과 (`tests/test_engine_smoke.py`)
+- [ ] **T4** `cli.py` + 종료 코드 · A00560 호출 형식 확정
+- [ ] **문서** `docs/0140_stt_converter_guide.md` · README 표 · Maya_Python `JUN_All/docs/WORKLOG.md` 한 줄
+- [ ] **T5** Qwen3-ASR 엔진 (M0-4 통과 시) — 선택
+- [ ] **M0-8** 기준 PC(A2000 · Win10) 실측 — 사용자 PC, 로그 전달
+- [ ] **M0-9** Python 3.14 만 있는 PC 실제 확인 — 사용자 PC
+
+### 12-2. 재개할 때 하는 일 (순서대로)
+
+1. `cd JUN_JALI` → `git status` · `git branch` — **`dev`** 인지, 미커밋 변경이 있는지 본다. 미커밋 변경은 내용을 확인한 뒤 이어 쓰거나 버린다(절반만 된 파일은 보통 버리고 체크리스트의 그 단계를 처음부터).
+2. §12-1 에서 **첫 `[ ]` 줄**이 다음 할 일이다. 그 단계의 산출물 위치는 §2 폴더 구조, 통과 기준은 §6(M0) · §7(T) 표.
+3. 환경: `.venv_stt\Scripts\python.exe -c "import faster_whisper, ctranslate2; print(ctranslate2.get_cuda_device_count())"` 가 1 이상이면 환경은 살아 있다. 0 이거나 import 실패면 `setup_stt.bat --force`(T1 전이면 §12-3 수동 명령).
+4. 모델 캐시: `models\` 에 `models--mobiuslabsgmbh--faster-whisper-large-v3-turbo` 가 있으면 다운로드는 끝난 것(약 1.6 GB). 없으면 첫 변환 때 받는다(`HF_HOME` 을 `models\` 로).
+5. 테스트: `.venv_stt\Scripts\python.exe -m pytest tools\STT_Converter\tests -q` (T2 이후). M0 단계면 §12-3 의 스크립트.
+6. 끝나면 체크리스트 `[x]` + §11 실측값 + 커밋 — **푸시는 사용자가 그 턴에 요청할 때만**.
+
+### 12-3. T1 전 수동 환경 명령 (M0 용, `setup_stt.bat` 이 이걸 자동화한다)
+
+```bat
+cd JUN_JALI
+py -3.11 -m venv .venv_stt
+.venv_stt\Scripts\python.exe -m pip install -U pip
+.venv_stt\Scripts\python.exe -m pip install faster-whisper nvidia-cublas-cu12 "nvidia-cudnn-cu12==9.*" jiwer num2words soundfile huggingface_hub PySide6==6.12.0
+set HF_HOME=%CD%\models
+```
+
+M0 스크립트는 `tools/STT_Converter/tests/m0_*.py` 에 두고 커밋한다(실측 재현용). 결과는 §11.
+
+---
+
 ## 11. 실측 기록 (M0 — 아직 없음)
 
 | # | 날짜 | 결과 |

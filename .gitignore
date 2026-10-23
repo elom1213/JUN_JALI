@@ -144,3 +144,8 @@ tools/*/data/
 .mfa/
 mfa_path.local.txt
 setup_mfa.log
+
+# [JUN_JALI] STT Converter - setup_stt.bat (venv, model cache, log)
+.venv_stt/
+models/
+setup_stt.log
