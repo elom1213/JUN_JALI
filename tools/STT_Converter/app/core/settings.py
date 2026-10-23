@@ -19,7 +19,7 @@ DEFAULTS = {
     "custom_model": "",
     "device": "auto",
     "beam_size": 5,
-    "vad": True,
+    "vad": "auto",
     "kana": False,
     "normalize": True,
     "output_dir": "",

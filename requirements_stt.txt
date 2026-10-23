@@ -1,0 +1,17 @@
+# [JUN_JALI] STT Converter - 2026-10-23 Windows 11 / Python 3.11.9 에서 확인한 조합 (setup_stt.bat 가 .venv_stt 에 설치)
+# docs/0130_stt_converter_plan.md §3-3 · §11 M0-1. CUDA 런타임은 pip 의 nvidia-* 휠로 받는다 (시스템 CUDA 불필요).
+faster-whisper==1.2.1
+ctranslate2==4.8.3
+av==18.1.0
+huggingface_hub==2.2.0
+hf-xet==1.7.0
+onnxruntime==1.31.0
+tokenizers==0.23.3
+numpy==2.4.6
+nvidia-cublas-cu12==12.9.2.10
+nvidia-cudnn-cu12==9.27.0.42
+nvidia-cuda-nvrtc-cu12==12.9.86
+PySide6==6.12.0
+num2words==0.5.14
+soundfile==0.14.0
+jiwer==4.0.0

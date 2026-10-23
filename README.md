@@ -18,6 +18,7 @@
 | [docs/0110_jali_mh_dummy_plan.md](docs/0110_jali_mh_dummy_plan.md) | 매칭표 · 제작 계획 — JALI 음소 ↔ 메타휴먼 페이셜 더미 노드 (`0010_sample_0050`): `DUMMY_IN_JALI/PHONEMES/COARTIC`(A00540 `jali_slider_dummy_in.json` 의 이름 · 0~1 단위 그대로), ARKit 경유 합성표 + 혀 · 입술 깨물기 · 턱 비례 동시조음 직접 매핑, 생성 · 검증 완료 |
 | [docs/0120_jali_dummy_out_attrs_guide.md](docs/0120_jali_dummy_out_attrs_guide.md) | **안내 — `DUMMY_OUT_PHONEMES` · `DUMMY_OUT_COARTIC` 어트리뷰트가 만드는 얼굴 표현** (angela 실측: 턱 각도 · 입술 근육 · 혀, 동시조음 채널의 뜻과 같이 쓰는 예) |
 | [docs/0130_stt_converter_plan.md](docs/0130_stt_converter_plan.md) | 제작 계획 — **음성 → 대본 변환기(STT Converter)**: 한 · 일 · 영 wav 여러 개 → MFA 용 대본 `.lab`(로컬 딥러닝, faster-whisper `large-v3-turbo` 1차 · Qwen3-ASR 2차), 모델 · 저장소 조사표, 언어별 정규화, 대상 PC 두 종(RTX 5070 · Ryzen 9 3900X + RTX A2000 12 GB) · Windows 10 · **Python 3.14 만 있는 PC**(전용 3.11 다운로드) 지원, 실측 항목 M0 |
+| [docs/0140_stt_converter_guide.md](docs/0140_stt_converter_guide.md) | **설치 · STT Converter 사용법** (v01.00) — `setup_stt.bat` · `Run_STT_Converter.bat` · `cli.py`: 한 · 일 · 영 wav 여러 개 → MFA 용 대본 `<이름>.lab`(faster-whisper `large-v3-turbo`, 로컬 · CPU / NVIDIA GPU), 정규화(숫자 → 수사) · 사용자 사전, 오류 · 경고 코드 E40 ~ · W20 ~, 실측 속도 · 정확도, 확인 기록 |
 
 **빠른 시작**: ① `setup_env.bat` 더블클릭(한 번 — PC 에 Python 3.12 ~ 3.14 만 있으면 이 폴더 전용 Python 3.11 을 받아 쓴다) → ② `Run_VisemeNet_Converter.bat` 더블클릭 → wav 넣고 `Convert`
 → ③ 마야에서 `Maya_Python/JUN_All/tools/A00540_JaliLipSync/__dragDrop_A00540.py` 를 드롭해 셸프 툴로 리그에 키.
@@ -25,7 +26,10 @@
 **대본 보정 (선택, v01.01)**: `setup_mfa.bat` 더블클릭(한 번 — 설치 폴더를 고른다, 약 6.5 GB) → 변환기 `Transcript` 를 `Correct with transcript (MFA)` 로,
 WAV 옆에 같은 이름의 대본(`.lab` / `.txt`, UTF-8) — 음소 구간으로 비짐을 보정한다 ([0080 사용법](docs/0080_transcript_correction_usage.md) · [0050 §6](docs/0050_converter_guide.md)).
 
-포크에서 더한 것: `setup_env.bat` · `setup_mfa.bat`(+ `mfa_env.lock.txt` · `requirements_mfa.txt`) · `Run_VisemeNet_Converter.bat` · `tools/VisemeNet_Converter/`(스탠드얼론 변환기) · `saved_params/ipa_to_jali.json` · `tools/selftest.py` ·
+**대본 자동 생성 (선택, STT Converter v01.00)**: `setup_stt.bat` 더블클릭(한 번 — 별도 `.venv_stt` + 모델 1.6 GB) → `Run_STT_Converter.bat` 더블클릭 → wav 넣고 `Language` 고르고 `Convert`
+→ wav 옆에 `<이름>.lab` 이 생긴다. 그 다음이 위의 대본 보정이다 ([0140 사용법](docs/0140_stt_converter_guide.md) · 계획 [0130](docs/0130_stt_converter_plan.md)).
+
+포크에서 더한 것: `setup_env.bat` · `setup_mfa.bat`(+ `mfa_env.lock.txt` · `requirements_mfa.txt`) · `Run_VisemeNet_Converter.bat` · `tools/VisemeNet_Converter/`(스탠드얼론 변환기) · `setup_stt.bat` · `Run_STT_Converter.bat` · `requirements_stt.txt` · `tools/STT_Converter/`(음성 → 대본 변환기) · `saved_params/ipa_to_jali.json` · `tools/selftest.py` ·
 `vendor/Framework/`(Maya_Python 공용 위젯 복사본) · `requirements.txt` · `examples/maya_apply_visemenet.py` · `docs/`.
 원본 코드(`inference.py` · `postprocess.py` · `visemenet_frozen.pb`)는 손대지 않았다 — 결정적 모드는 불러온 그래프만 바꾼다.
 라이선스 주의: 원본 VisemeNet 은 GPLv3 또는 상용(UMass) — 진단 문서 §4.

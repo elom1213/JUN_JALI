@@ -76,7 +76,8 @@ class FasterWhisperEngine(base.Engine):
         try:
             segments, info = self._model.transcribe(
                 wav_path, language=code, beam_size=o.beam_size, word_timestamps=o.word_timestamps,
-                vad_filter=o.vad, vad_parameters=dict(min_silence_duration_ms=o.min_silence_ms),
+                vad_filter=bool(o.vad) if o.vad != "auto" else True,
+                vad_parameters=dict(min_silence_duration_ms=o.min_silence_ms),
                 condition_on_previous_text=o.condition_on_previous_text,
                 initial_prompt=o.initial_prompt or None)
             out = []

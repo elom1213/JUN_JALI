@@ -1,6 +1,6 @@
 # 음성 → 대본 변환기 (STT Converter) — 툴 제작 계획서
 
-> **작성** 2026-10-23 · 상태: **M0 실측 중 — 개발 PC 는 CPU 로만**(§6 경고 · §11 크래시 기록) · 코어 1차 커밋됨(`a09e524`) · 대상: Windows 10 · 11, 로컬 GPU / CPU 폴백 — **대상 PC 두 종류**(§1-0): 개발 PC(RTX 5070 12 GB) 와
+> **작성** 2026-10-23 · 상태: **T1 · T2 · T4 완료 — v01.00, 사용 안내는 [0140](0140_stt_converter_guide.md)** · 개발 PC 는 CPU 로만(§6 경고 · §11 크래시 기록) · 남은 것: M0-5 · M0-8 · M0-9 · T3 · T5 · 대상: Windows 10 · 11, 로컬 GPU / CPU 폴백 — **대상 PC 두 종류**(§1-0): 개발 PC(RTX 5070 12 GB) 와
 > 사용자가 지정한 **기준 사양 PC(Ryzen 9 3900X · RTX A2000 12 GB · RAM 32 GB 이상)**. 두 PC 모두에서 동작해야 완료다.
 > **PC 에 Python 3.14 만 설치돼 있어도 동작해야 한다**(사용자 지정, 2026-10-23) — §1-0 Python 행 · 결정 **D14**.
 > **요청**: 잡음 없는 **한국어 · 일본어 · 영어** 음성 wav 여러 개를 **그 언어의 텍스트 파일**로 변환하는 변환기. 딥러닝 모델 가능, **로컬에서** 돌아야 한다.
@@ -346,14 +346,14 @@ STT 결과는 자막용 표기(숫자 · 기호 · 영문 약어)다. MFA 사전
 - [x] **M0-6** 속도 · 모델 로드 시간 — 2026-10-23 통과(GPU 는 크래시 전 로그에서 회수, CPU 는 직접), §11
 - [x] **M0-7** CPU int8 폴백 — 2026-10-23 통과: KR · EN 결과가 GPU float16 과 글자 단위로 같음, 3 파일 111 초 → 26 초, §11
 - [ ] **M0-4** Qwen3-ASR 설치 가능성 (torch cu128 · sm_120) — 선택
-- [ ] **T1** `setup_stt.bat` · `requirements_stt.txt` · `Run_STT_Converter.bat` (+ M0-9 모사 `--no-system-python`)
-- [ ] **T2-a** `app/core/engines/` (base · faster_whisper_engine) + `device.py`
+- [x] **T1** `setup_stt.bat` · `requirements_stt.txt` · `Run_STT_Converter.bat` — 2026-10-23 `SETUP OK`(`.python\` 공유 · 모델 캐시 · CPU 자가 검사) · `--force --offline` 재구축 통과. **bat 은 CRLF 여야 한다**(LF 면 `call :label` 복귀가 어긋나 다른 블록의 문장이 로그 첫머리에 찍힘 — 2026-10-23 실측, `.gitattributes` 가 강제). M0-9 모사(`--no-system-python` 의 다운로드 경로)는 `.python\` 이 이미 있어 이 PC 에서 미실시
+- [x] **T2-a** `app/core/engines/` (base · faster_whisper_engine) + `device.py` — 2026-10-23 (강제 CPU 스위치 `fcb7230` 포함)
 - [x] **T2-b** `app/core/normalize/` (base · english · korean · japanese) + `tests/test_normalize.py` — 2026-10-23, 65 검사 통과(venv · 시스템 Python 둘 다)
-- [ ] **T2-c** `app/core/{job,converter,output_writer,settings}.py` + `tests/test_core.py`
-- [ ] **T2-d** `app/ui/main_window.py` (+ progress_dialog 복제) + `launch.py` + `tests/test_ui.py`
-- [ ] **T2-e** 예시 3 언어 실제 변환 → `.lab` → MFA 통과 (`tests/test_engine_smoke.py`)
-- [ ] **T4** `cli.py` + 종료 코드 · A00560 호출 형식 확정
-- [ ] **문서** `docs/0140_stt_converter_guide.md` · README 표 · Maya_Python `JUN_All/docs/WORKLOG.md` 한 줄
+- [x] **T2-c** `app/core/{job,converter,output_writer,settings}.py` + `tests/test_core.py` — 2026-10-23, 24 검사 통과(가짜 엔진)
+- [x] **T2-d** `app/ui/main_window.py` (+ progress_dialog 복제) + `launch.py` + `tests/test_ui.py` — 2026-10-23, 오프스크린 23 검사 통과(진행 팝업 · Stop · 사용자 사전 · 설정 복원). 실제 화면의 창은 미확인
+- [ ] **T2-e** 예시 3 언어 실제 변환 → `.lab` → MFA 통과 — **반만**: `tests/test_engine_smoke.py`(실제 모델 CPU int8, `cli.py` 로 coffee wav → `.lab`, 8 검사) 는 2026-10-23 통과. 예시 3 언어 `.lab` → VisemeNet Converter Correct 모드 통과는 M0-5 와 함께 미실시
+- [x] **T4** `cli.py` + 종료 코드(0 / 1 / 2) · A00560 호출 형식 — 2026-10-23, 형식은 [0140 §6](0140_stt_converter_guide.md)
+- [x] **문서** `docs/0140_stt_converter_guide.md` · README 표 · Maya_Python `JUN_All/docs/WORKLOG.md` 한 줄 — 2026-10-23 (첫 시도는 작성 도중 PC 크래시로 유실, 다시 씀)
 - [ ] **T5** Qwen3-ASR 엔진 (M0-4 통과 시) — 선택
 - [ ] **M0-8** 기준 PC(A2000 · Win10) 실측 — 사용자 PC, 로그 전달
 - [ ] **M0-9** Python 3.14 만 있는 PC 실제 확인 — 사용자 PC
@@ -362,7 +362,7 @@ STT 결과는 자막용 표기(숫자 · 기호 · 영문 약어)다. MFA 사전
 
 1. `cd JUN_JALI` → `git status` · `git branch` — **`dev`** 인지, 미커밋 변경이 있는지 본다. 미커밋 변경은 내용을 확인한 뒤 이어 쓰거나 버린다(절반만 된 파일은 보통 버리고 체크리스트의 그 단계를 처음부터).
 2. §12-1 에서 **첫 `[ ]` 줄**이 다음 할 일이다. 그 단계의 산출물 위치는 §2 폴더 구조, 통과 기준은 §6(M0) · §7(T) 표.
-3. 환경: `.venv_stt\Scripts\python.exe -c "import faster_whisper, ctranslate2; print(ctranslate2.__version__)"` 가 버전을 찍으면 환경은 살아 있다(**`get_cuda_device_count()` 는 개발 PC 에서 부르지 않는다** — §6 경고). import 실패면 `setup_stt.bat --force`(T1 전이면 §12-3 수동 명령). 실측 · 스모크 테스트는 전부 `--device cpu --compute int8`.
+3. 환경: `.venv_stt\Scripts\python.exe -c "import faster_whisper, ctranslate2; print(ctranslate2.__version__)"` 가 버전을 찍으면 환경은 살아 있다(**`get_cuda_device_count()` 는 개발 PC 에서 부르지 않는다** — §6 경고). import 실패 · `source code string cannot contain null bytes`(크래시로 venv 파일이 비었다, §11 환경 복구) 면 `setup_stt.bat --force --offline`. 실측 · 스모크 테스트는 전부 `--device cpu --compute int8`.
 4. 모델 캐시: `models\` 에 `models--mobiuslabsgmbh--faster-whisper-large-v3-turbo` 가 있으면 다운로드는 끝난 것(약 1.6 GB). 없으면 첫 변환 때 받는다(`HF_HOME` 을 `models\` 로).
 5. 테스트: `.venv_stt\Scripts\python.exe -m pytest tools\STT_Converter\tests -q` (T2 이후). M0 단계면 §12-3 의 스크립트.
 6. 끝나면 체크리스트 `[x]` + §11 실측값 + 커밋 — **푸시는 사용자가 그 턴에 요청할 때만**.
@@ -392,5 +392,6 @@ M0 스크립트는 `tools/STT_Converter/tests/m0_*.py` 에 두고 커밋한다(�
 | **M0-6** (개발 PC) | 2026-10-23 | **통과.** GPU float16(크래시 전 로그 회수): 캐시 로드 **1.9 s**(최초 다운로드 포함 170 s), KR 35.9 s 음성 → **0.9 s**(×40), JP 45.8 s → **1.1 s**(×41), EN 29.7 s → 9.0 s(첫 호출 워밍업 포함). CPU int8: 로드 **2.3 ~ 3.0 s**, KR → **6.8 s**(×5.3), EN → **6.3 s**(×4.7), JP → **12.9 s**(×3.6) — 3 파일 111 s → **26 s**. **호출당 고정 비용 약 5.3 s**(CPU, 1.5 s 클립도 5.3 s) → 진행 팝업 가중치는 "파일당 5 s + 음성 길이 × 0.3"(CPU) 로 잡고 A2000 실측(M0-8) 뒤 조정. 기준(로드 < 30 s · GPU 변환 < 1/5 실시간) 통과 |
 | **M0-7** (개발 PC) | 2026-10-23 | **통과.** `device=cpu, compute_type=int8`: KR · EN 결과 텍스트가 GPU float16 과 **글자 단위로 동일**. 시간은 M0-6. 16 스레드(7800X3D) 기준이라 기준 PC(3900X, 24 스레드 · AVX2) 는 비슷하거나 약간 느릴 것 — M0-8 에서 확인 |
 | **크래시 기록** (개발 PC) | 2026-10-23 | 16:29 · 16:37 · 16:41 — 세 번 모두 faster-whisper **CUDA float16 프로세스 기동 5 ~ 15 초 안**(모델 VRAM 업로드 단계)에 PC 강제 종료. 같은 날 CUDA 기동 6회 중 3회 성공(M0-1 EN · M0-3 KR · JP) · 3회 크래시. CUDA 장치 수 조회만 하는 프로브는 멀쩡. 둘은 덤프 없는 하드 리셋, 하나는 0x50 `FLTMGR`. 이 PC 는 2026-06 이후 비정상 종료 약 100회(`nvlddmkm!portMemCopy` 7회 · `nt!Mi*` · `dxgkrnl` · `WdFilter` · 하이퍼바이저) 이고 10/22 는 CPU 전용 numpy 작업 중에도 꺼졌다 → **STT 는 방아쇠, 원인은 PC**(RAM · PCIe · 전원 · 드라이버 610.62 중 하나). 결정: 이 PC 는 CPU int8 만(§6 경고 · §8). 전체 분석은 세션 메모리 `dev-pc-crashes-under-cuda-load` |
+| **환경 복구** (개발 PC) | 2026-10-23 | `setup_stt.bat --force` 로 패키지를 설치하던 중 PC 가 꺼짐(17:44, 0140 문서 작성과 같은 시간대). 결과: `.venv_stt` 안 **285 파일이 크기는 맞고 내용은 전부 0 바이트**(NTFS 메타데이터만 남음) → `SyntaxError: source code string cannot contain null bytes`. 저장소 소스 · `models\`(1.6 GB, 헤더 · 꼬리 확인) · `.python\` 은 멀쩡. `setup_stt.bat --force --offline --yes` 로 복구, 시험 4종 통과. 같은 날 발견한 bat 버그: LF 줄바꿈이면 cmd 의 `call :say` 복귀 위치가 어긋나 로그 첫머리에 `SETUP FAILED` · `'-m' is not recognized` 같은 다른 블록 문장이 찍힌다(동작 자체는 끝까지 감) → CRLF 로 변환, `.gitattributes` 가 체크아웃 때 보장 |
 | M0-8 (기준 PC, Ryzen 9 3900X · RTX A2000 12 GB · 32 GB) | — | 〃 — 변환 시간 · VRAM 피크 · CPU 폴백 시간 |
 | M0-9 (Python 3.14 만 있는 PC / `--no-system-python` 모사) | — | 〃 — 전용 3.11 다운로드 → 자가 검사 통과 여부 |

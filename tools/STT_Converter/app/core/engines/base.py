@@ -97,10 +97,10 @@ class TranscribeResult(object):
 class TranscribeOptions(object):
     """엔진 공통 옵션 (docs/0130 §5-2 기본값)."""
 
-    def __init__(self, beam_size=5, vad=True, min_silence_ms=500, word_timestamps=True, initial_prompt="",
+    def __init__(self, beam_size=5, vad="auto", min_silence_ms=500, word_timestamps=True, initial_prompt="",
                  condition_on_previous_text=False):
         self.beam_size = beam_size
-        self.vad = vad
+        self.vad = vad                        # True / False / "auto"(converter 가 파일 길이로 정한다, 엔진은 bool 로 받음)
         self.min_silence_ms = min_silence_ms
         self.word_timestamps = word_timestamps
         self.initial_prompt = initial_prompt
