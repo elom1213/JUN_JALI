@@ -2,6 +2,7 @@
 
 > **작성** 2026-10-23 · 상태: **계획 (코드 전, 실측 M0 전)** · 대상: Windows 10 · 11, 로컬 GPU / CPU 폴백 — **대상 PC 두 종류**(§1-0): 개발 PC(RTX 5070 12 GB) 와
 > 사용자가 지정한 **기준 사양 PC(Ryzen 9 3900X · RTX A2000 12 GB · RAM 32 GB 이상)**. 두 PC 모두에서 동작해야 완료다.
+> **PC 에 Python 3.14 만 설치돼 있어도 동작해야 한다**(사용자 지정, 2026-10-23) — §1-0 Python 행 · 결정 **D14**.
 > **요청**: 잡음 없는 **한국어 · 일본어 · 영어** 음성 wav 여러 개를 **그 언어의 텍스트 파일**로 변환하는 변환기. 딥러닝 모델 가능, **로컬에서** 돌아야 한다.
 > 예시 입력: `JUN_JALI_Voice/0060_Vivian_voice/src_kr` · `src_jp` · `src_en`(wav + 손으로 쓴 대본 — 이 손 대본이 지금 변환기가 자동으로 만들어야 할 정답 예시다).
 > 선행 문서: [0060 대본 + MFA 계획](0060_transcript_mfa_plan.md) · [0080 대본 보정 사용법](0080_transcript_correction_usage.md)(대본 규칙 §③) · [0030 툴 계획](0030_tool_plan.md)(변환기 뼈대 · bat 설치 방식).
@@ -37,6 +38,7 @@ A00540 JaliLipSync / A00560 JaliBatch  →  JALI 리그 키 · 클립 .mb
 | GPU | NVIDIA GeForce RTX 5070 **12 GB** (Blackwell, sm_120, 드라이버 610) | NVIDIA **RTX A2000 12 GB** (Ampere **GA106, sm_86**, 3,328 CUDA 코어, 70 W, 메모리 288 GB/s) | **VRAM 이 둘 다 12 GB** → 모델 · compute_type 선택은 같다. A2000 은 Ampere 라 **int8 · float16 · bf16 모두 정식 지원**, Blackwell 호환 문제(§3-3) 가 없다. 연산 성능은 5070 의 약 1/4 ~ 1/3 → 변환 시간 기준은 **A2000 으로 잡는다** |
 | RAM | — | 32 GB 이상 | 모델 로드(CPU 측 가중치 복사) · PyAV 디코드에 충분. CPU 폴백에서 large-v3 fp32 도 8 GB 안쪽 |
 | 드라이버 | GeForce | RTX(구 Quadro) 드라이버 — CUDA 12.x 런타임 DLL 은 pip 로 가져오므로 **드라이버는 CUDA 12 이상을 지원하는 R525+ 면 된다** | `setup_stt.bat` 자가 검사가 `nvidia-smi` 드라이버 버전 · CUDA 버전을 로그에 적는다 |
+| **Python** | 3.11 (시스템) + JUN_JALI `.python\` 없음 | **Python 3.14 만 설치된 PC 도 지원해야 한다**(사용자 지정, 2026-10-23). 새 Python 설치 관리자(`py` 가 3.14 만 알고, 없는 버전을 요청해도 **종료 코드 0**) 가정 | 툴은 **PC 의 Python 에 의존하지 않는다** — `setup_stt.bat` 가 `setup_env.bat` 와 같은 방식으로 **전용 Python 3.11.9**(python.org NuGet 패키지, SHA-256 검사, 약 17 MB)를 저장소 `.python\` 에 받아 `.venv_stt` 를 만든다(**D14**). 3.14 네이티브 설치는 보조 경로(§3-3 Python 행) |
 | **OS** | Windows 11 Pro | **Windows 10 도 지원해야 한다**(사용자 지정, 2026-10-23) — 64-bit 21H2 이상 가정 | Python 3.11 · PySide6 6.12(Qt 6.8+, Win10 1809+) · CUDA 12.8 런타임 · CTranslate2 · PyTorch cu128 모두 Win10 64-bit 지원. **이 저장소가 Win10 PC 에서 이미 겪은 함정을 그대로 적용**: ① 새 Python 설치 관리자의 `py -3.11` 이 3.11 없이도 종료 코드 0 → 후보를 **실행해 출력으로** 판단 ② 사용자 이름이 한글이면 260자 경로 한계 · cp949 콘솔 → 설치 폴더 80자 제한 · `chcp 65001` ③ `PYTHONHOME` · `PYTHONPATH` · `CONDA_*` 격리(VisemeNet Converter v01.02 와 동일). 자가 검사 로그 첫머리에 `ver`(OS 빌드) 를 적어 Win10 · 11 을 구분한다 |
 
 - **Windows 10 에서 조심할 것(추가)**: ⑤ Win10 기본 콘솔은 UTF-8 이 아니다 → bat 의 `chcp 65001` + Python 쪽 `PYTHONUTF8=1`, 로그 파일은 UTF-8 로 ⑥ 긴 경로 지원(`LongPathsEnabled`) 이 꺼져 있는 PC 가 많다 → Hugging Face 캐시(`models/`) 는 저장소 루트처럼 **짧은 경로**에, 모델 폴더 이름도 짧게(`snapshots/<hash>` 깊이 주의) ⑦ Windows 10 은 2025-10 이후 MS 일반 지원이 끝났지만 NVIDIA 드라이버 · CUDA 12.8 은 지원 중 — 드라이버가 오래된 PC 가 있을 수 있어 setup 이 **최소 드라이버 버전을 검사해 안내**한다 ⑧ 마지막 확인은 **실제 Win10 PC 에서**(M0-8 을 Win10 + A2000 PC 로 묶어서 하는 것이 가장 좋다, Q8).
@@ -59,6 +61,7 @@ A00540 JaliLipSync / A00560 JaliBatch  →  JALI 리그 키 · 클립 .mb
 | **D11** | 실행 형태 | `.bat` + `.venv_stt`(exe 안 만듦) — VisemeNet Converter 와 같다 | 모델 · CUDA 라이브러리가 수 GB 라 PyInstaller 로 묶을 수 없다 |
 | **D12** | 헤드리스 | `tools/STT_Converter/cli.py`(폴더 · 언어 · 출력 옵션 → 종료 코드) 를 UI 와 **같은 코어**로 | A00560 P4 가 호출한다. UI 는 코어의 껍데기 |
 | **D13** | 오류 정책 | VisemeNet Converter 와 **같은 사전 검사 → 하나라도 실패면 변환 0**(E40 ~ E49), 변환 중 파일 하나 실패는 **그 파일만 W** 로 넘기고 계속 | 변환 결과는 독립적(파일 하나가 다른 파일에 영향 없음) 이라 중단할 이유가 없다. 사전 검사는 환경 · 경로 문제를 미리 잡는 용도 |
+| **D14** | **Python 공급 — PC 에 3.14 만 있을 때** | **`setup_stt.bat` 가 PC 의 Python 을 쓰지 않고 전용 Python 3.11.9 를 `.python\` 에 받아 `.venv_stt` 를 만든다**(`setup_env.bat` 의 `:probe` · `:download_python` 루틴을 그대로 가져옴). 순서: ① `.python\python.exe` 가 이미 있으면(VisemeNet `setup_env.bat` 이 받아 둔 것) **그걸 공유** ② 없으면 `py -3.11` · PATH 의 python 을 **실행해 출력(`JUNPY 3 11 64`)으로** 판단 ③ 둘 다 없으면 전용 3.11.9 다운로드(`--yes` 로 무확인). **PC 의 3.14 는 후보에 넣지 않는다**(기본) — `--use-system-python` 옵션으로만 시도 | 2026-10-20 Win10 · Python 3.14 PC 에서 **이미 검증된 방식**이다(VisemeNet 변환기). 3.11 은 faster-whisper · CTranslate2 · PySide6 · PyTorch cu128 · `qwen-asr` 가 모두 지원하고 **이 조합만 실측한다**. 3.14 네이티브는 휠은 대부분 있지만(§3-3) 검증 조합이 하나 더 늘고, PyTorch 는 2.15 부터 CUDA 12.x 휠을 끊어 Blackwell/Ampere 공통 cu128 조합을 3.14 에서 오래 유지하기 어렵다. 전용 Python 은 시스템을 건드리지 않고(`.python\` 폴더 삭제 = 제거) 두 PC · 두 OS 에서 같은 바이너리를 쓰게 한다 |
 
 ---
 
@@ -66,7 +69,9 @@ A00540 JaliLipSync / A00560 JaliBatch  →  JALI 리그 키 · 클립 .mb
 
 ```
 JUN_JALI/
-├─ setup_stt.bat                        T1  더블클릭 → .venv_stt + faster-whisper + 모델 받기 + 자가 검사
+├─ .python/                             (.gitignore) 전용 Python 3.11.9 — setup_env.bat · setup_stt.bat 이 공유 (D14)
+├─ .venv_stt/                           (.gitignore) STT 전용 가상환경 — .python\ 또는 PC 의 3.11 로 만든다
+├─ setup_stt.bat                        T1  더블클릭 → Python 3.11 확보(D14) → .venv_stt + faster-whisper + 모델 받기 + 자가 검사
 ├─ Run_STT_Converter.bat                T2  더블클릭 → 변환기 창 (Run_VisemeNet_Converter.bat 와 같은 꼴)
 ├─ requirements_stt.txt                 고정 버전 (실측 뒤 적는다 — §6 M0)
 ├─ requirements_stt_qwen.txt            (선택) Qwen3-ASR 엔진 추가 설치
@@ -134,6 +139,7 @@ JUN_JALI/
 
 | 항목 | 내용 | 주의 — 개발 PC(RTX 5070 · Blackwell sm_120) / 기준 PC(RTX A2000 · Ampere sm_86) |
 |------|------|-----------------------------------------------|
+| **Python 버전** | 툴 고정 **3.11**(D14). 참고 — 3.14 네이티브 휠 현황(2026-10): CTranslate2 4.8.1 분류자에 3.14 포함(Windows 휠은 "지원 버전 전부" 라는 유지자 답변, 파일명 미확인) · PySide6 **6.11.0(2026-03) 부터** 3.14 지원(6.10 은 `<3.14`) · PyTorch 는 3.9 ~ 3.14 지원이나 **2.15 부터 CUDA 12.x 휠 중단** · `qwen-asr` ≥ 3.9 · num2words · soundfile 은 순수/범용 휠 | 3.14 로 깔 수는 있어 보이지만 **실측 조합을 하나로** 유지하기 위해 기본은 전용 3.11. `--use-system-python` 으로 3.14 를 시도할 때는 `pip download --only-binary=:all: --python-version 3.14 --platform win_amd64` 로 휠 존재를 먼저 검사해 **휠이 없으면 전용 3.11 로 되돌아간다**(소스 빌드는 절대 하지 않음 — 기준 PC 에 컴파일러가 없다) |
 | **faster-whisper** (SYSTRAN) | Python ≥ 3.9 · `pip install faster-whisper` · PyAV 동봉(ffmpeg 불필요) · `WhisperModel(name, device, compute_type)` · `transcribe(language=, beam_size=, word_timestamps=, vad_filter=, initial_prompt=, condition_on_previous_text=)` · `BatchedInferencePipeline` | 모델 이름 `large-v3-turbo` = `turbo` → `mobiuslabsgmbh/faster-whisper-large-v3-turbo` |
 | **CTranslate2** | 4.6.3 (2026-01) CUDA 12.8 지원 · cuDNN 선택 사항으로 · **4.6.2 가 sm120 에서 INT8 비활성**, 4.7.0 이 INT8 텐서코어 패딩 수정(#1982) · 최신 4.8.3 (2026-10-13) | 5070: RTX 50 에서 int8 → `CUBLAS_STATUS_NOT_SUPPORTED` 보고가 있었다(수정 전 버전). **M0 에서 `float16` 과 `int8_float16` 둘 다 실측**, 실패하면 float16 고정. **A2000(Ampere) 은 CTranslate2 가 오래 지원한 세대라 int8 · float16 모두 문제 없음** — 기준 PC 쪽 리스크는 성능만 |
 | CUDA DLL (Windows) | faster-whisper README 는 Windows 에 pip 경로를 주지 않는다 → ① `pip install nvidia-cublas-cu12 nvidia-cudnn-cu12==9.*` 뒤 `os.add_dll_directory` 로 등록(코드에서) 또는 ② Purfview `whisper-standalone-win` 의 libs zip | ①을 기본으로 시험, `device.py` 가 DLL 폴더를 등록 |
@@ -236,6 +242,7 @@ STT 결과는 자막용 표기(숫자 · 기호 · 영문 약어)다. MFA 사전
 | **M0-5** | 정규화 → MFA 통과 | M0-3 결과를 정규화해 `.lab` 로 두고 VisemeNet Converter Correct 모드 실행 | E33 · W12 없이 정렬, `.phones.json` 생성. 남는 미처리 토큰(W23) 목록 |
 | **M0-6** | 속도 | 세 파일(총 111 초) 변환 시간, 모델 로드 시간 | 로드 < 30 초, 변환 실시간의 1/5 이하(GPU) — 진행 팝업 가중치 산정 |
 | **M0-7** | CPU 폴백 | `device="cpu", compute_type="int8"`, 같은 파일 | 결과 동일성 · 시간 기록(다른 PC 안내용) |
+| **M0-9** | **Python 3.14 만 있는 상황**에서 `setup_stt.bat` 가 전용 3.11 을 받아 끝까지 가는가 | 이 PC 에서는 3.11 이 있으므로 `setup_stt.bat --no-system-python`(후보 탐색을 건너뛰고 바로 다운로드 경로) 로 **모사**, 가능하면 사용자의 3.14 PC 에서 실제 더블클릭(Q9) | `.python\` 생성 → `.venv_stt` → pip 설치 → 자가 검사(1.5 초 wav 변환) 까지 **질문 한 번(Y) 외 입력 없이** 통과. `setup_env.bat` 이 이미 받아 둔 `.python\` 이 있으면 **다시 받지 않는다**. `PYTHONHOME` · `PYTHONPATH` 가 3.14 를 가리키는 PC 에서도 import 오류 없음(격리 변수 확인) |
 | **M0-8** | **기준 사양 PC(Ryzen 9 3900X · RTX A2000 12 GB · 32 GB, 가능하면 Windows 10)** 에서 M0-1 · M0-2 · M0-6 · M0-7 재실행 (+ M0-4 가 통과했으면 Qwen 1.7B 시간 · VRAM) | `setup_stt.bat` 를 그 PC 에서 더블클릭 → 자가 검사 → 같은 3 파일 변환 | 설치 한 번에 성공, **GPU float16 로 3 파일(111 초) 변환 < 60 초**, CPU int8 폴백도 끝까지 돈다, VRAM 피크 < 8 GB. 이 값이 진행 팝업 가중치 · 문서의 "예상 시간" 이 된다. **이 PC 가 없으면 사용자가 로그(`setup_stt.log` · 변환 로그)를 보내 주는 방식으로** |
 
 ---
@@ -245,7 +252,7 @@ STT 결과는 자막용 표기(숫자 · 기호 · 영문 약어)다. MFA 사전
 | 단계 | 내용 | 완료 조건 |
 |------|------|-----------|
 | **M0** | §6 실측 7개 — 결과를 이 문서 §11 에 적는다 | 엔진 · compute_type · requirements 고정 |
-| **T1** `setup_stt.bat` | `setup_env.bat` 복제 → `.venv_stt` · `requirements_stt.txt` · 모델 선다운로드(`huggingface_hub` → `models/`) · 자가 검사(1.5 초 wav 변환) · `--qwen` 옵션 | 더블클릭 한 번으로 끝, 재실행 안전, 로그 `setup_stt.log` |
+| **T1** `setup_stt.bat` | `setup_env.bat` 복제 → **Python 3.11 확보(D14: `.python\` 공유 → PC 3.11 탐색 → 전용 3.11.9 다운로드)** → `.venv_stt` · `requirements_stt.txt` · CUDA DLL(pip `nvidia-*-cu12`) · 모델 선다운로드(`huggingface_hub` → `models/`) · 자가 검사(1.5 초 wav 변환) · 옵션 `--yes` `--force` `--nopause` `--no-system-python` `--use-system-python` `--qwen` `--offline` | 더블클릭 한 번으로 끝(3.14 만 있는 PC 는 Y 한 번), 재실행 안전, 로그 `setup_stt.log` 첫머리에 OS 빌드 · GPU · 드라이버 · 어느 Python 을 썼는지 |
 | **T2** 코어 + UI | `engines/faster_whisper_engine` · `normalize/*` · `converter` · `output_writer` · `main_window` | `tests/` 통과(정규화 표 케이스 전부, UI 오프스크린), 예시 3 언어 변환 → VisemeNet Converter 통과 |
 | **T4** `cli.py` | `python cli.py <folder|wav...> --language Korean --ext lab --existing skip --json` → 종료 코드 0/1, 로그 stdout | A00560 P4 가 그대로 호출 가능 |
 | **T3** Review 창(선택) | 세그먼트 표 + 재생 + 저장 | Q4 답에 따라 |
@@ -262,6 +269,7 @@ STT 결과는 자막용 표기(숫자 · 기호 · 영문 약어)다. MFA 사전
 | **기준 PC(RTX A2000)** 의 연산 성능이 개발 PC 의 1/4 ~ 1/3 | 개발 PC 에서 맞춘 "예상 시간" 이 틀림, Qwen 1.7B 가 체감상 느릴 수 있음 | 시간 기준은 A2000 실측(M0-8). 느리면 콤보 기본을 turbo + `int8_float16` 으로. RTX 드라이버(구 Quadro) 는 CUDA 12 지원 버전인지 setup 이 확인 |
 | 기준 PC 에 모델을 받을 네트워크가 없을 수 있음 | 설치 중단 | `models/` 캐시 폴더를 통째로 복사해 쓰는 경로 · `setup_stt.bat --offline` |
 | **Windows 10** 고유 — 긴 경로 꺼짐 · cp949 콘솔 · 새 Python 설치 관리자(3.14) 의 `py` 동작 · 오래된 드라이버 | 설치 실패 · 모델 캐시 경로 오류 · 로그 깨짐 | §1-0 ⑤ ~ ⑧. `setup_env.bat` 가 Win10 PC 에서 이미 해결한 방식(실행해서 버전 판단 · 전용 Python 3.11.9 · 80자 경로) 을 `setup_stt.bat` 에 그대로 가져온다 |
+| **PC 에 Python 3.14 만 있음**(D14) — `py -3.11` 이 성공한 척(종료 코드 0) · `PYTHONHOME`/`PYTHONPATH` 가 3.14 표준 라이브러리를 가리킴 · NuGet 다운로드가 막힌 네트워크 | 잘못된 Python 으로 venv 를 만들거나 첫 import 에서 죽음 · 다운로드 실패로 설치 중단 | 후보는 **실행해 출력으로** 판단, 격리 변수(VisemeNet v01.02 와 동일), `.python\` 공유로 다운로드 1회. 다운로드가 막히면 **E40 안내에 두 길**: ① `.python\` 폴더를 다른 PC 에서 복사 ② python.org 3.11.9 설치. `.venv_stt` 는 만든 Python 의 절대 경로를 박으므로 **폴더 이동 뒤에는 `--force`** (Run 배치가 `import PySide6` 로 먼저 검사해 안내) |
 | **연기 음성**(감탄 · 외침 · 속삭임)은 벤치(읽기 음성)보다 인식률이 낮다 | 대본 오류 → MFA 틀어짐 | beam 5 · VAD · 모델 교체 콤보 · Review 창 · `.stt.json` 의 확신도로 낮은 구간 표시 |
 | 짧은 클립(1.5 초) 환각 · 언어 오감지 | 엉뚱한 문장 | 언어 강제(D4) · W24 휴리스틱 · 빈 결과는 W22 |
 | 숫자 · 고유명사 표기(`파에톤`, `KWI`) | MFA 사전 밖 → G2P 추측 | 사용자 사전 · W23 로 남는 토큰 보여 주기 |
@@ -290,7 +298,8 @@ STT 결과는 자막용 표기(숫자 · 기호 · 영문 약어)다. MFA 사전
 - 벤치마크 참고 — Open ASR Leaderboard https://huggingface.co/spaces/hf-audio/open_asr_leaderboard · Whisfusion 논문(ko · ja 표) https://arxiv.org/abs/2508.07048 · 일본어 ASR 비교 https://japanese-asr-readme.static.hf.space/ · Qwen3-ASR vs Whisper FLEURS 30 언어 https://whispernotes.app/blog/qwen3-asr-vs-whisper · 언어별 로컬 모델 표 https://models.handy.computer/languages/ko
 
 ### 런타임 · 도구
-- PyTorch cu128(Blackwell) — https://pytorch.org/get-started/locally/ · sm_120 논의 https://discuss.pytorch.org/t/pytorch-support-for-sm120/216099
+- PyTorch cu128(Blackwell) — https://pytorch.org/get-started/locally/ · sm_120 논의 https://discuss.pytorch.org/t/pytorch-support-for-sm120/216099 · CUDA 12.x 휠 중단 공지(2.15 부터, Python 3.10 제거) https://dev-discuss.pytorch.org/t/notice-python-3-10-support-is-being-removed-from-pytorch-2-15-2-14-is-the-last-release-with-3-10-wheels/3440
+- Python 3.14 호환 참고 — PySide6 6.11 릴리스(3.14 지원 시작) https://www.qt.io/blog/qt-for-python-release-6.11-is-out · CTranslate2 설치 문서 https://opennmt.net/CTranslate2/installation.html · 전용 Python 3.11.9 NuGet 패키지 https://www.nuget.org/api/v2/package/python/3.11.9 (`setup_env.bat` 이 쓰는 것, SHA-256 `9283876d…`)
 - whisper.cpp — https://github.com/ggml-org/whisper.cpp (Python 없는 대안) · Purfview Faster-Whisper-XXL(올인원 exe) — https://github.com/Purfview/whisper-standalone-win
 - WhisperX — https://github.com/m-bain/whisperX · whisper-timestamped — https://github.com/linto-ai/whisper-timestamped (쓰지 않는 이유 §3-3)
 - num2words — https://pypi.org/project/num2words/ · pykakasi(일본어 かな 변환) — https://codeberg.org/miurahr/pykakasi · jiwer(CER/WER) — https://github.com/jitsi/jiwer
@@ -314,6 +323,7 @@ STT 결과는 자막용 표기(숫자 · 기호 · 영문 약어)다. MFA 사전
 | **Q6** | 일본어 출력 — 한자 혼용(STT 그대로) 기본 vs かな 전용 | 한자 혼용 기본, `Kana output` 옵션 | pykakasi 의존 추가 |
 | **Q7** | 테스트 음성 — `0060_Vivian_voice` 3 언어 외에 **대화체 · 짧은 외침** 샘플이 더 있나 | 있으면 M0-3 에 추가 | 정확도 기준값 |
 | **Q8** | 기준 사양 PC(A2000) 에 직접 접근할 수 있나, 아니면 사용자가 그 PC 에서 bat 을 돌리고 로그를 전달하나 | 로그 전달 방식도 되게 `setup_stt.bat` 가 환경 요약(GPU · 드라이버 · CUDA · RAM · 자가 검사 시간)을 로그 첫머리에 쓴다 | M0-8 진행 방법 |
+| **Q9** | Python 3.14 만 있는 PC — 전용 3.11 다운로드(D14, 권장) 로 가는 데 동의하나, 아니면 3.14 네이티브 설치를 1차 목표로? 그 PC 가 기준 사양(A2000 · Win10) PC 와 같은 PC 인가 | 전용 3.11. 같은 PC 면 M0-8 과 M0-9 를 한 번에 | D14 · M0-9. 3.14 네이티브를 고르면 PySide6 ≥ 6.11 · PyTorch cu128 ≤ 2.14 로 핀이 바뀌고 실측 조합이 둘로 늘어난다 |
 
 ---
 
@@ -323,3 +333,4 @@ STT 결과는 자막용 표기(숫자 · 기호 · 영문 약어)다. MFA 사전
 |---|------|------|
 | M0-1 ~ M0-7 (개발 PC, RTX 5070) | — | 코드 전 실측 뒤 채운다 |
 | M0-8 (기준 PC, Ryzen 9 3900X · RTX A2000 12 GB · 32 GB) | — | 〃 — 변환 시간 · VRAM 피크 · CPU 폴백 시간 |
+| M0-9 (Python 3.14 만 있는 PC / `--no-system-python` 모사) | — | 〃 — 전용 3.11 다운로드 → 자가 검사 통과 여부 |
