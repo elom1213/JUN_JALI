@@ -1,6 +1,6 @@
 # 음성 → 대본 변환기 (STT Converter) — 툴 제작 계획서
 
-> **작성** 2026-10-23 · 상태: **계획 (코드 전, 실측 M0 전)** · 대상: Windows 10 · 11, 로컬 GPU / CPU 폴백 — **대상 PC 두 종류**(§1-0): 개발 PC(RTX 5070 12 GB) 와
+> **작성** 2026-10-23 · 상태: **M0 실측 중 — 개발 PC 는 CPU 로만**(§6 경고 · §11 크래시 기록) · 코어 1차 커밋됨(`a09e524`) · 대상: Windows 10 · 11, 로컬 GPU / CPU 폴백 — **대상 PC 두 종류**(§1-0): 개발 PC(RTX 5070 12 GB) 와
 > 사용자가 지정한 **기준 사양 PC(Ryzen 9 3900X · RTX A2000 12 GB · RAM 32 GB 이상)**. 두 PC 모두에서 동작해야 완료다.
 > **PC 에 Python 3.14 만 설치돼 있어도 동작해야 한다**(사용자 지정, 2026-10-23) — §1-0 Python 행 · 결정 **D14**.
 > **요청**: 잡음 없는 **한국어 · 일본어 · 영어** 음성 wav 여러 개를 **그 언어의 텍스트 파일**로 변환하는 변환기. 딥러닝 모델 가능, **로컬에서** 돌아야 한다.
@@ -206,7 +206,7 @@ STT 결과는 자막용 표기(숫자 · 기호 · 영문 약어)다. MFA 사전
 |------|------|------|
 | `language` | UI 선택(강제) | D4. 자동 감지 결과는 `detected_language` · 확률로 json 에 기록, 다르면 W20 |
 | `beam_size` | 5 | 정확도 우선(요청). 속도가 문제면 1 |
-| `vad_filter` | **True**, `min_silence_duration_ms=500` | 앞뒤 무음(예시 kr 은 4.5 초 무음으로 시작)에서 **환각**(없는 말 생성)을 막는다 |
+| `vad_filter` | **True**, `min_silence_duration_ms=500` — **단, 짧은 클립(약 10 초 미만)은 False** | 앞뒤 무음(예시 kr 은 4.5 초 무음으로 시작)에서 **환각**(없는 말 생성)을 막는다. **실측(§11 M0-3 보조, 2026-10-23)**: 3.7 초 · 4.9 초 클립은 VAD 가 앞머리를 잘라 CER 72 % · 13 % 가 났고 `--no-vad` 로는 둘 다 0 %. 긴 파일(30 ~ 46 초)은 VAD 켜도 손실 없음 → **파일 길이로 자동 전환**(T2 에서 구현, 경계값은 M3 에서 조정) |
 | `condition_on_previous_text` | **False** | 반복 환각 방지. 클립이 짧아 문맥 이득이 없다 |
 | `word_timestamps` | True | json 에만 — 검수 · 나중에 MFA 실패 구간 비교용 |
 | `initial_prompt` | 언어별 짧은 문장(선택) | 한국어 띄어쓰기 · 일본어 구두점 스타일을 유도. 효과는 M3 에서 판단 |
@@ -232,6 +232,8 @@ STT 결과는 자막용 표기(숫자 · 기호 · 영문 약어)다. MFA 사전
 ---
 
 ## 6. 실측 항목 M0 — 코드 전에 확정할 것 (이 PC)
+
+> ⚠ **개발 PC 에서 CUDA 프로세스를 띄우지 말 것(2026-10-23)** — faster-whisper CUDA float16 프로세스 기동 5 ~ 15 초 안에 PC 가 강제 종료된 일이 하루에 3회(6회 중 3회). 원인은 PC 자체(§11 크래시 기록)라 코드로 못 막는다. 이 PC 의 M0 는 **`--device cpu --compute int8`** 로만 하고, GPU 항목(M0-2 · M0-4)은 PC 점검 뒤 또는 기준 PC(M0-8)에서 한다. 실행 전 커밋 · 한 프로세스씩 · 로그는 파일로.
 
 | # | 항목 | 방법 | 통과 기준 |
 |---|------|------|-----------|
@@ -266,6 +268,7 @@ STT 결과는 자막용 표기(숫자 · 기호 · 영문 약어)다. MFA 사전
 | 리스크 | 영향 | 대비 |
 |--------|------|------|
 | Blackwell(sm_120) 에서 CTranslate2 int8 · PyTorch 호환 (개발 PC) | 설치가 안 되거나 느림 | M0-1 · 2 · 4 를 코드 전에. float16 고정 · CPU 폴백 |
+| **개발 PC 가 CUDA 기동에서 강제 종료**(2026-10-23 3회, §11) — PC 자체 결함(6월 이후 비정상 종료 약 100회, `nvlddmkm!portMemCopy` 7회) | 작업 유실 · GPU 경로를 이 PC 에서 검증 못 함 | 이 PC 는 CPU int8 만(§6 경고). GPU 검증은 M0-8(A2000). PC 점검: 메모리 테스트 → NVIDIA 드라이버 클린 재설치 → BIOS 에서 PCIe Gen4 고정 · EXPO 확인 → MSI Center `NTIOLib` · Ryzen Master 드라이버 제거 → BIOS 갱신. 점검 뒤 CUDA 프로세스 10회 연속 기동 통과해야 GPU 재개 |
 | **기준 PC(RTX A2000)** 의 연산 성능이 개발 PC 의 1/4 ~ 1/3 | 개발 PC 에서 맞춘 "예상 시간" 이 틀림, Qwen 1.7B 가 체감상 느릴 수 있음 | 시간 기준은 A2000 실측(M0-8). 느리면 콤보 기본을 turbo + `int8_float16` 으로. RTX 드라이버(구 Quadro) 는 CUDA 12 지원 버전인지 setup 이 확인 |
 | 기준 PC 에 모델을 받을 네트워크가 없을 수 있음 | 설치 중단 | `models/` 캐시 폴더를 통째로 복사해 쓰는 경로 · `setup_stt.bat --offline` |
 | **Windows 10** 고유 — 긴 경로 꺼짐 · cp949 콘솔 · 새 Python 설치 관리자(3.14) 의 `py` 동작 · 오래된 드라이버 | 설치 실패 · 모델 캐시 경로 오류 · 로그 깨짐 | §1-0 ⑤ ~ ⑧. `setup_env.bat` 가 Win10 PC 에서 이미 해결한 방식(실행해서 버전 판단 · 전용 Python 3.11.9 · 80자 경로) 을 `setup_stt.bat` 에 그대로 가져온다 |
@@ -337,11 +340,11 @@ STT 결과는 자막용 표기(숫자 · 기호 · 영문 약어)다. MFA 사전
 - [x] 계획서 작성 · README 등록 (2026-10-23, `c044fea` · `6473649`)
 - [x] 브랜치 정리: `dev` = `main` fast-forward, 이후 모든 작업은 **`dev`** 에서 (2026-10-23)
 - [x] **M0-1** faster-whisper + CUDA DLL 이 RTX 5070 에서 뜬다 (`.venv_stt`, float16) — 2026-10-23 통과, §11
-- [ ] **M0-2** `int8_float16` 가능 여부
-- [ ] **M0-3** 세 언어 CER (src_kr · src_jp · src_en_full vs 손 대본)
+- [x] **M0-2** `int8_float16` 가능 여부 — **개발 PC 미실시(CUDA 금지, §6 경고)**. 결정: CUDA 기본 **float16 고정**, int8_float16 은 콤보 옵션. 런타임 지원 목록에는 들어 있음(§11 M0-1). 실제 검증은 M0-8
+- [x] **M0-3** 세 언어 CER — 2026-10-23, §11. EN 0.33 % · KR 6.59 %(전부 고유명사) · JP 11.05 %(표기 차이) + 짧은 클립은 VAD 끄면 0 %
 - [ ] **M0-5** 정규화 → `.lab` → VisemeNet Converter Correct 모드 통과
-- [ ] **M0-6** 속도 · 모델 로드 시간
-- [ ] **M0-7** CPU int8 폴백
+- [x] **M0-6** 속도 · 모델 로드 시간 — 2026-10-23 통과(GPU 는 크래시 전 로그에서 회수, CPU 는 직접), §11
+- [x] **M0-7** CPU int8 폴백 — 2026-10-23 통과: KR · EN 결과가 GPU float16 과 글자 단위로 같음, 3 파일 111 초 → 26 초, §11
 - [ ] **M0-4** Qwen3-ASR 설치 가능성 (torch cu128 · sm_120) — 선택
 - [ ] **T1** `setup_stt.bat` · `requirements_stt.txt` · `Run_STT_Converter.bat` (+ M0-9 모사 `--no-system-python`)
 - [ ] **T2-a** `app/core/engines/` (base · faster_whisper_engine) + `device.py`
@@ -359,7 +362,7 @@ STT 결과는 자막용 표기(숫자 · 기호 · 영문 약어)다. MFA 사전
 
 1. `cd JUN_JALI` → `git status` · `git branch` — **`dev`** 인지, 미커밋 변경이 있는지 본다. 미커밋 변경은 내용을 확인한 뒤 이어 쓰거나 버린다(절반만 된 파일은 보통 버리고 체크리스트의 그 단계를 처음부터).
 2. §12-1 에서 **첫 `[ ]` 줄**이 다음 할 일이다. 그 단계의 산출물 위치는 §2 폴더 구조, 통과 기준은 §6(M0) · §7(T) 표.
-3. 환경: `.venv_stt\Scripts\python.exe -c "import faster_whisper, ctranslate2; print(ctranslate2.get_cuda_device_count())"` 가 1 이상이면 환경은 살아 있다. 0 이거나 import 실패면 `setup_stt.bat --force`(T1 전이면 §12-3 수동 명령).
+3. 환경: `.venv_stt\Scripts\python.exe -c "import faster_whisper, ctranslate2; print(ctranslate2.__version__)"` 가 버전을 찍으면 환경은 살아 있다(**`get_cuda_device_count()` 는 개발 PC 에서 부르지 않는다** — §6 경고). import 실패면 `setup_stt.bat --force`(T1 전이면 §12-3 수동 명령). 실측 · 스모크 테스트는 전부 `--device cpu --compute int8`.
 4. 모델 캐시: `models\` 에 `models--mobiuslabsgmbh--faster-whisper-large-v3-turbo` 가 있으면 다운로드는 끝난 것(약 1.6 GB). 없으면 첫 변환 때 받는다(`HF_HOME` 을 `models\` 로).
 5. 테스트: `.venv_stt\Scripts\python.exe -m pytest tools\STT_Converter\tests -q` (T2 이후). M0 단계면 §12-3 의 스크립트.
 6. 끝나면 체크리스트 `[x]` + §11 실측값 + 커밋 — **푸시는 사용자가 그 턴에 요청할 때만**.
@@ -378,11 +381,16 @@ M0 스크립트는 `tools/STT_Converter/tests/m0_*.py` 에 두고 커밋한다(�
 
 ---
 
-## 11. 실측 기록 (M0 — 아직 없음)
+## 11. 실측 기록 (M0)
 
 | # | 날짜 | 결과 |
 |---|------|------|
 | **M0-1** (개발 PC, RTX 5070 · Win11 · Python 3.11.9) | 2026-10-23 | **통과.** `.venv_stt`: faster-whisper 1.2.1 · CTranslate2 4.8.3 · av 18.1 · nvidia-cublas-cu12 12.9.2 · nvidia-cudnn-cu12 9.27 · PySide6 6.12 · num2words 0.5.14 · jiwer 4.0 · soundfile 0.14. pip 의 nvidia DLL 폴더를 `os.add_dll_directory` 로 등록하면 CTranslate2 가 CUDA 장치 1개를 본다(지원 타입: float16 · int8_float16 · bfloat16 …). `large-v3-turbo` float16 로드 170 s(**다운로드 1.6 GB 포함**, `models/hub/models--mobiuslabsgmbh--faster-whisper-large-v3-turbo`). 영어 29.7 s 변환 9.0 s(첫 호출, 워밍업 포함). `src_en_full` 손 대본 대비 **CER 0.33 % · WER 1.49 %**(차이는 구두점 · 대소문자만). HF 캐시 심볼릭 링크 경고는 무해 → `HF_HUB_DISABLE_SYMLINKS_WARNING=1` |
-| M0-2 ~ M0-7 (개발 PC) | — | 실측 뒤 채운다 |
+| **M0-2** (개발 PC) | 2026-10-23 | **미실시 — 개발 PC 에서 CUDA 금지**(아래 크래시 기록). 결정: CUDA 기본 `float16` 고정, `int8_float16` 은 콤보 옵션으로만. CTranslate2 는 5070 의 지원 목록에 `int8_float16` 을 넣어 보고했지만 실행은 못 봤다. 실제 검증은 M0-8(A2000, Ampere 는 int8 지원이 확실) |
+| **M0-3** (개발 PC) | 2026-10-23 | **EN** float16 CER **0.33 %** · WER 1.49 %(차이는 구두점 · 대소문자). **KR** float16 CER **6.59 %** · WER 16.00 % — 오류는 **전부** 고유명사 `파에톤 님` → `파이토님` 4회, 나머지는 손 대본과 글자 단위로 일치 → 사용자 사전(§4) 으로 해결되는 유형. **JP** CPU int8 CER **11.05 %** — 차이는 표기: `パエトーン`→`パエトン` ×3, `お傍`→`おそば`, `わたし`→`私` ×2, `辿り着いて`→`たどり着いて`, `如何なる`→`いかなる`, 「そして」 1어 누락. 발음 기준으로는 거의 같다 → MFA 일본어 사전이 한자 · 가나 어느 표기를 받는지에 따라 §4 정규화(pykakasi) 로 흡수, 고유명사는 사전. 기준 CER < 10 % 는 EN · KR 통과, JP 는 사전 적용 뒤 재측정. (KR · EN float16 값은 16:29 크래시 전 `m0_rest.log` 에서 회수, JP 는 CPU 로 재측정 — float16 결과와 int8 결과가 KR · EN 에서 동일했으므로 비교 가능) |
+| **M0-3 보조 — 짧은 클립** (개발 PC, CPU int8) | 2026-10-23 | `src_en` 5 클립, VAD 켠 기본값: 01(10.8 s) CER 0.89 % · 02(1.5 s) 0 % · **03(3.7 s) 72 %**(`important pers-` — 앞머리 유실) · **04(4.9 s) 13 %**(`no matter the`→`for the`) · 05(8.1 s) 0 %. **`--no-vad` 로 03 · 04 · 02 모두 CER 0 %.** → VAD 는 긴 파일에만, 짧은 클립은 끈다(§5-2 갱신). 1.5 초 클립 환각 없음 |
+| **M0-6** (개발 PC) | 2026-10-23 | **통과.** GPU float16(크래시 전 로그 회수): 캐시 로드 **1.9 s**(최초 다운로드 포함 170 s), KR 35.9 s 음성 → **0.9 s**(×40), JP 45.8 s → **1.1 s**(×41), EN 29.7 s → 9.0 s(첫 호출 워밍업 포함). CPU int8: 로드 **2.3 ~ 3.0 s**, KR → **6.8 s**(×5.3), EN → **6.3 s**(×4.7), JP → **12.9 s**(×3.6) — 3 파일 111 s → **26 s**. **호출당 고정 비용 약 5.3 s**(CPU, 1.5 s 클립도 5.3 s) → 진행 팝업 가중치는 "파일당 5 s + 음성 길이 × 0.3"(CPU) 로 잡고 A2000 실측(M0-8) 뒤 조정. 기준(로드 < 30 s · GPU 변환 < 1/5 실시간) 통과 |
+| **M0-7** (개발 PC) | 2026-10-23 | **통과.** `device=cpu, compute_type=int8`: KR · EN 결과 텍스트가 GPU float16 과 **글자 단위로 동일**. 시간은 M0-6. 16 스레드(7800X3D) 기준이라 기준 PC(3900X, 24 스레드 · AVX2) 는 비슷하거나 약간 느릴 것 — M0-8 에서 확인 |
+| **크래시 기록** (개발 PC) | 2026-10-23 | 16:29 · 16:37 · 16:41 — 세 번 모두 faster-whisper **CUDA float16 프로세스 기동 5 ~ 15 초 안**(모델 VRAM 업로드 단계)에 PC 강제 종료. 같은 날 CUDA 기동 6회 중 3회 성공(M0-1 EN · M0-3 KR · JP) · 3회 크래시. CUDA 장치 수 조회만 하는 프로브는 멀쩡. 둘은 덤프 없는 하드 리셋, 하나는 0x50 `FLTMGR`. 이 PC 는 2026-06 이후 비정상 종료 약 100회(`nvlddmkm!portMemCopy` 7회 · `nt!Mi*` · `dxgkrnl` · `WdFilter` · 하이퍼바이저) 이고 10/22 는 CPU 전용 numpy 작업 중에도 꺼졌다 → **STT 는 방아쇠, 원인은 PC**(RAM · PCIe · 전원 · 드라이버 610.62 중 하나). 결정: 이 PC 는 CPU int8 만(§6 경고 · §8). 전체 분석은 세션 메모리 `dev-pc-crashes-under-cuda-load` |
 | M0-8 (기준 PC, Ryzen 9 3900X · RTX A2000 12 GB · 32 GB) | — | 〃 — 변환 시간 · VRAM 피크 · CPU 폴백 시간 |
 | M0-9 (Python 3.14 만 있는 PC / `--no-system-python` 모사) | — | 〃 — 전용 3.11 다운로드 → 자가 검사 통과 여부 |
