@@ -12,11 +12,25 @@
 # 옵션: --model large-v3-turbo | large-v3 | <HF repo> · --device cuda|cpu · --compute float16|int8_float16|int8
 #       --beam 5 · --no-vad · --json <폴더> (세그먼트 json 저장)
 # Windows: pip 로 받은 nvidia cuBLAS / cuDNN DLL 폴더를 ctranslate2 import 전에 등록한다 (아래 add_nvidia_dlls).
+# 출력은 항상 UTF-8 로 쓴다 - `python -I` 는 PYTHONUTF8 환경 변수를 무시하므로 콘솔이 cp949 면 일본어 출력에서
+#   UnicodeEncodeError 가 났다 (2026-10-23 M0-3 JP 결과 유실). 아래 _force_utf8_stdio 가 막는다.
+# --device cpu 면 CUDA 를 전혀 건드리지 않는다 (DLL 등록 · 장치 수 조회 생략) - 개발 PC 가 CUDA 작업에서 강제 종료되는 문제 때문.
 import argparse
 import json
 import os
 import sys
 import time
+
+
+def _force_utf8_stdio():
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.reconfigure(encoding="utf-8", errors="replace")
+        except (AttributeError, ValueError):
+            pass
+
+
+_force_utf8_stdio()
 
 LANG_CODES = {"English": "en", "Korean": "ko", "Japanese": "ja"}
 
@@ -75,12 +89,18 @@ def main():
     ap.add_argument("--json", default="")
     a = ap.parse_args()
 
-    dlls = add_nvidia_dlls()
-    print("[M0] nvidia DLL dirs:", dlls or "(none)")
     import ctranslate2
     from faster_whisper import WhisperModel
-    print("[M0] ctranslate2", ctranslate2.__version__, "cuda devices:", ctranslate2.get_cuda_device_count(),
-          "supported compute types:", sorted(ctranslate2.get_supported_compute_types(a.device)))
+    if a.device == "cpu":
+        # CPU 전용 - CUDA 초기화 없음
+        print("[M0] device cpu - CUDA not touched. ctranslate2", ctranslate2.__version__,
+              "cpu compute types:", sorted(ctranslate2.get_supported_compute_types("cpu")),
+              "threads:", os.cpu_count())
+    else:
+        dlls = add_nvidia_dlls()
+        print("[M0] nvidia DLL dirs:", dlls or "(none)")
+        print("[M0] ctranslate2", ctranslate2.__version__, "cuda devices:", ctranslate2.get_cuda_device_count(),
+              "supported compute types:", sorted(ctranslate2.get_supported_compute_types(a.device)))
 
     t0 = time.perf_counter()
     model = WhisperModel(a.model, device=a.device, compute_type=a.compute)
