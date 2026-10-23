@@ -336,7 +336,7 @@ STT 결과는 자막용 표기(숫자 · 기호 · 영문 약어)다. MFA 사전
 
 - [x] 계획서 작성 · README 등록 (2026-10-23, `c044fea` · `6473649`)
 - [x] 브랜치 정리: `dev` = `main` fast-forward, 이후 모든 작업은 **`dev`** 에서 (2026-10-23)
-- [ ] **M0-1** faster-whisper + CUDA DLL 이 RTX 5070 에서 뜬다 (`.venv_stt`, float16)
+- [x] **M0-1** faster-whisper + CUDA DLL 이 RTX 5070 에서 뜬다 (`.venv_stt`, float16) — 2026-10-23 통과, §11
 - [ ] **M0-2** `int8_float16` 가능 여부
 - [ ] **M0-3** 세 언어 CER (src_kr · src_jp · src_en_full vs 손 대본)
 - [ ] **M0-5** 정규화 → `.lab` → VisemeNet Converter Correct 모드 통과
@@ -345,7 +345,7 @@ STT 결과는 자막용 표기(숫자 · 기호 · 영문 약어)다. MFA 사전
 - [ ] **M0-4** Qwen3-ASR 설치 가능성 (torch cu128 · sm_120) — 선택
 - [ ] **T1** `setup_stt.bat` · `requirements_stt.txt` · `Run_STT_Converter.bat` (+ M0-9 모사 `--no-system-python`)
 - [ ] **T2-a** `app/core/engines/` (base · faster_whisper_engine) + `device.py`
-- [ ] **T2-b** `app/core/normalize/` (base · english · korean · japanese) + `tests/test_normalize.py`
+- [x] **T2-b** `app/core/normalize/` (base · english · korean · japanese) + `tests/test_normalize.py` — 2026-10-23, 65 검사 통과(venv · 시스템 Python 둘 다)
 - [ ] **T2-c** `app/core/{job,converter,output_writer,settings}.py` + `tests/test_core.py`
 - [ ] **T2-d** `app/ui/main_window.py` (+ progress_dialog 복제) + `launch.py` + `tests/test_ui.py`
 - [ ] **T2-e** 예시 3 언어 실제 변환 → `.lab` → MFA 통과 (`tests/test_engine_smoke.py`)
@@ -382,6 +382,7 @@ M0 스크립트는 `tools/STT_Converter/tests/m0_*.py` 에 두고 커밋한다(�
 
 | # | 날짜 | 결과 |
 |---|------|------|
-| M0-1 ~ M0-7 (개발 PC, RTX 5070) | — | 코드 전 실측 뒤 채운다 |
+| **M0-1** (개발 PC, RTX 5070 · Win11 · Python 3.11.9) | 2026-10-23 | **통과.** `.venv_stt`: faster-whisper 1.2.1 · CTranslate2 4.8.3 · av 18.1 · nvidia-cublas-cu12 12.9.2 · nvidia-cudnn-cu12 9.27 · PySide6 6.12 · num2words 0.5.14 · jiwer 4.0 · soundfile 0.14. pip 의 nvidia DLL 폴더를 `os.add_dll_directory` 로 등록하면 CTranslate2 가 CUDA 장치 1개를 본다(지원 타입: float16 · int8_float16 · bfloat16 …). `large-v3-turbo` float16 로드 170 s(**다운로드 1.6 GB 포함**, `models/hub/models--mobiuslabsgmbh--faster-whisper-large-v3-turbo`). 영어 29.7 s 변환 9.0 s(첫 호출, 워밍업 포함). `src_en_full` 손 대본 대비 **CER 0.33 % · WER 1.49 %**(차이는 구두점 · 대소문자만). HF 캐시 심볼릭 링크 경고는 무해 → `HF_HUB_DISABLE_SYMLINKS_WARNING=1` |
+| M0-2 ~ M0-7 (개발 PC) | — | 실측 뒤 채운다 |
 | M0-8 (기준 PC, Ryzen 9 3900X · RTX A2000 12 GB · 32 GB) | — | 〃 — 변환 시간 · VRAM 피크 · CPU 폴백 시간 |
 | M0-9 (Python 3.14 만 있는 PC / `--no-system-python` 모사) | — | 〃 — 전용 3.11 다운로드 → 자가 검사 통과 여부 |
