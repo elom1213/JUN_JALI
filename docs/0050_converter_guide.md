@@ -71,6 +71,8 @@ venv 는 `python.exe` 가 실제로 생겼는지 본다.
 
 ## 2. 변환 — `Run_VisemeNet_Converter.bat` 더블클릭
 
+설치가 끝나면 같은 폴더에 아이콘이 붙은 바로가기 **`VisemeNet Converter.lnk`** 가 생긴다 — 이걸 눌러도 같다(폴더를 옮겼으면 `make_shortcuts.bat` 을 다시 실행).
+
 콘솔 없이 창만 뜬다. 첫 `Convert` 때 모델을 불러오느라 몇 초 걸린다.
 
 1. **WAV 넣기** — `Add Files...` / `Add Folder...`, 또는 탐색기에서 **창으로 끌어다 놓기**. 같은 파일은 한 번만 들어간다.
@@ -166,6 +168,7 @@ inverted dropout 이라 이것이 곧 dropout 의 기댓값 추론이다.
 
 | 파일 | 역할 |
 |------|------|
+| `tools/VisemeNet_Converter/icon/` | `VisemeNet_Converter.svg`(원본: 파형 → 입) · `.png`(256) · `.ico`(16 ~ 256 멀티) — 창 · 작업표시줄 · 바로가기 아이콘. 바로가기는 `make_shortcuts.bat`([0140 §8](0140_stt_converter_guide.md)) |
 | `tools/VisemeNet_Converter/launch.py` | 진입점. `sys.path` = 저장소 루트 + `vendor/`. 시작 오류는 메시지 창 + `data/startup_error.log` |
 | `app/core/wav_check.py` | `check_wav()` — E01~E08, W01~W02 |
 | `app/core/converter.py` | `Engine`(모델 1회 로드, 결정적 모드), `preflight()`(E09~E11 · E30~E32 · E34), `run_batch()`(E20~E24, Stop, 정렬 · 보정, `stage` 콜백), `expected_rows()` |

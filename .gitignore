@@ -149,3 +149,6 @@ setup_mfa.log
 .venv_stt/
 models/
 setup_stt.log
+
+# [JUN_JALI] Explorer shortcuts made by make_shortcuts.bat (absolute paths - per PC)
+/*.lnk

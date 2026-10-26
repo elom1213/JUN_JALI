@@ -69,6 +69,8 @@ GPU 는 선택 — NVIDIA GPU 가 있으면 CUDA 로, 없으면 CPU 로 돈다(�
 
 ## 2. 변환 — `Run_STT_Converter.bat` 더블클릭
 
+설치가 끝나면 같은 폴더에 아이콘이 붙은 바로가기 **`STT Converter.lnk`** 가 생긴다 — 이걸 눌러도 같다(`.bat` 은 자체 아이콘을 못 가져서 바로가기로 보인다. 폴더를 옮겼으면 `make_shortcuts.bat` 을 다시 실행).
+
 콘솔 없이 창만 뜬다. 실행 전에 `.venv_stt` 가 도는지 확인하고, 안 되면 `Double-click setup_stt.bat again` 을 띄운다(폴더를 옮긴 경우 → `--force`).
 시작 중 오류는 메시지 창 + `tools\STT_Converter\data\startup_error.log`.
 
@@ -241,7 +243,9 @@ $ cli.py D:\voice\src_kr --language Korean --quiet
 | `cli.py` | 헤드리스(§6) |
 | `selftest.py` | 설치 마지막 검사(CPU 고정). `--wav` `--language` `--model` |
 | `download_model.py` | 모델 선다운로드(`faster_whisper.utils.download_model` → `models\hub`) |
-| `app/config/version.py` · `app_meta.py` | 버전 · 작업표시줄 아이콘 ID (`icon/` 은 아직 없다 — 기본 아이콘) |
+| `app/config/version.py` · `app_meta.py` | 버전 · 작업표시줄 아이콘 ID(AUMID) · `icon_path()` |
+| `tools/STT_Converter/icon/` | `STT_Converter.svg`(원본: 파형 → 대본 줄) · `.png`(256) · `.ico`(16 ~ 256 멀티) — 창 · 작업표시줄 · 바로가기 아이콘 |
+| `make_shortcuts.bat` | 탐색기 바로가기 `STT Converter.lnk` · `VisemeNet Converter.lnk`(아이콘 = 각 `icon/*.ico`, 최소화 실행). `setup_*.bat` 끝에서 부른다. 절대 경로라 git 에 넣지 않는다(`/*.lnk`) |
 | `app/core/engines/base.py` | `Engine` 인터페이스(`load` · `transcribe` → `TranscribeResult`) · `TranscribeOptions` · `EngineError(code)` · W24 휴리스틱(`suspects`) |
 | `app/core/engines/faster_whisper_engine.py` | 1차 엔진. 모델 콤보 목록 `MODEL_CHOICES`. `qwen3_asr_engine.py` 가 생기면 `engines/__init__.py` 가 자동으로 콤보에 넣는다 |
 | `app/core/device.py` | nvidia DLL 등록 → CUDA 장치 · compute type 조회 → `choose(preference)`. **강제 CPU**(`JUN_STT_FORCE_CPU` · `data/force_cpu.flag`) 면 CUDA 를 전혀 부르지 않는다 |

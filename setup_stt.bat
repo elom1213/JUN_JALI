@@ -213,9 +213,10 @@ if not "%STRC%"=="0" (
 
 call :say ""
 call :say "[6/6] Done."
+call "%~dp0make_shortcuts.bat"
 call :say "============================================================"
 call :say " SETUP OK"
-call :say " Next: double-click Run_STT_Converter.bat"
+call :say " Next: double-click the 'STT Converter' shortcut (or Run_STT_Converter.bat)"
 call :say " GPU: pick 'Auto' or 'CUDA float16' in the Device box of the converter window."
 call :say "============================================================"
 if "%NOPAUSE%"=="0" pause

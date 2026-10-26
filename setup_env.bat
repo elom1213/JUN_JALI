@@ -144,9 +144,10 @@ if not "%STRC%"=="0" (
 
 call :say ""
 call :say "[5/5] Done."
+call "%~dp0make_shortcuts.bat"
 call :say "============================================================"
 call :say " SETUP OK"
-call :say " Next: double-click Run_VisemeNet_Converter.bat"
+call :say " Next: double-click the 'VisemeNet Converter' shortcut (or Run_VisemeNet_Converter.bat)"
 call :say "============================================================"
 if "%NOPAUSE%"=="0" pause
 exit /b 0

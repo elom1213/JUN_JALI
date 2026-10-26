@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32">
+  <rect x="1" y="1" width="30" height="30" rx="6" fill="#2d2d30" stroke="#4a4a4f" stroke-width="1.5"/>
+  <!-- audio waveform -> transcript lines -->
+  <g fill="#4fc3f7">
+    <rect x="5.5" y="13" width="2" height="6" rx="1"/>
+    <rect x="9" y="9" width="2" height="14" rx="1"/>
+    <rect x="12.5" y="12" width="2" height="8" rx="1"/>
+  </g>
+  <g fill="#ffd54f">
+    <rect x="17" y="10" width="10" height="2.4" rx="1.2"/>
+    <rect x="17" y="14.8" width="8" height="2.4" rx="1.2"/>
+    <rect x="17" y="19.6" width="10" height="2.4" rx="1.2"/>
+  </g>
+</svg>
